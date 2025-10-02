@@ -13,8 +13,8 @@
     const urlParams = new URLSearchParams(window.location.search);
     const session = urlParams.get("session");
     const socket = io("https://agoraequeeuquerover.onrender.com", {
-  transports: ["websocket"]
-});
+      transports: ["websocket", "polling"]
+    });
     socket.emit('join_room', { session });
 
     async function loadInitial() {
