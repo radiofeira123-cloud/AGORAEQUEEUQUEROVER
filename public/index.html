@@ -26,8 +26,8 @@
 
   <script>
     const socket = io("https://agoraequeeuquerover.onrender.com", {
-  transports: ["websocket"]
-});
+      transports: ["websocket", "polling"]
+    });
     let sessionId = null;
     let photos = [];
 
@@ -45,8 +45,12 @@
     document.getElementById('genQR').onclick = () => {
       sessionId = "sess-" + Math.random().toString(36).substr(2,6);
       socket.emit('join_room', { session: sessionId });
+
       const url = "https://agoraequeeuquerover.onrender.com/celular.html?session=" + sessionId;
-      QRCode.toCanvas(document.getElementById('qrcode'), url);
+      if (url) {
+        QRCode.toCanvas(document.getElementById("qrcode"), url)
+          .catch(err => console.error("Erro QR:", err));
+      }
     };
 
     document.getElementById('endSession').onclick = () => {
