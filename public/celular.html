@@ -6,13 +6,13 @@
   <style>
     body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: black; color: white; font-family: sans-serif; height: 100vh; }
     video, canvas { max-width: 100%; height: auto; border: 3px solid white; border-radius: 10px; }
-    #btnFullscreen, #btnStart { padding: 15px 25px; font-size: 18px; margin: 10px; }
+    button { padding: 15px 25px; font-size: 18px; margin: 10px; }
     #message { font-size: 32px; margin: 20px; }
   </style>
 </head>
 <body>
   <button id="btnFullscreen">Entrar em Tela Cheia</button>
-  <button id="btnStart" style="display:none;">Clique aqui para Iniciar</button>
+  <button id="btnStart" style="display:none;">Clique aqui para começar</button>
   <div id="message"></div>
   <video id="video" autoplay playsinline style="display:none;"></video>
   <canvas id="canvas" style="display:none;"></canvas>
@@ -21,15 +21,14 @@
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
     const socket = io("https://agoraequeeuquerover.onrender.com");
+    let session = null;
+
     const btnFullscreen = document.getElementById("btnFullscreen");
     const btnStart = document.getElementById("btnStart");
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
     const message = document.getElementById("message");
     const clickSound = document.getElementById("clickSound");
-
-    let session = "sessao_" + Date.now(); // gera ID de sessão
-    socket.emit("join_room", { session });
 
     btnFullscreen.onclick = () => {
       if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
@@ -75,6 +74,18 @@
       await startCamera();
       takePhotos();
     };
+
+    // 🔄 Resetar sessão quando operador mandar
+    socket.on("reset_session", () => {
+      photos = [];
+      message.innerText = "";
+      btnStart.style.display = "inline-block";
+    });
+
+    // Sessão vem pelo QRCode
+    const params = new URLSearchParams(window.location.search);
+    session = params.get("session");
+    socket.emit("join_room", { session });
   </script>
 </body>
 </html>
