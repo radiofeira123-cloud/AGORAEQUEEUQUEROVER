@@ -2,61 +2,65 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Cabine Fotográfica - Controle</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cabine Photobooth</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 50px;
+      background: #f8f8f8;
+    }
+    #qrcode {
+      margin: 20px auto;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
 </head>
 <body>
-  <h1>Cabine Fotográfica - PC</h1>
-  <button id="btnCreate">Gerar QR Code Celular</button>
+  <h1>📸 Cabine Photobooth</h1>
+  <button id="generate">Gerar QRCode para Controle</button>
   <div id="qrcode"></div>
 
-  <button id="btnEnd">Finalizar Sessão</button>
-
-  <h2>Fotos recebidas:</h2>
-  <div id="photos"></div>
-
-  <!-- QRCode e Socket.IO -->
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-
   <script>
-    // Conectar ao servidor Render
-    const socket = io("https://agoraequeeuquerover.onrender.com", {
-      transports: ["websocket", "polling"]
-    });
+    const socket = io();
 
     let currentSession = null;
 
-    document.getElementById("btnCreate").addEventListener("click", () => {
+    document.getElementById("generate").addEventListener("click", () => {
       socket.emit("create_session");
     });
 
     socket.on("session_created", (sessionId) => {
       currentSession = sessionId;
       const url = `https://agoraequeeuquerover.onrender.com/celular.html?session=${sessionId}`;
-      QRCode.toCanvas(document.getElementById("qrcode"), url, function (error) {
-        if (error) console.error(error);
+
+      const qrDiv = document.getElementById("qrcode");
+      qrDiv.innerHTML = ""; // limpa QR antigo
+
+      // 🔑 gera o canvas do QR e insere dentro da div
+      QRCode.toCanvas(url, { width: 200 }, function (err, canvas) {
+        if (err) {
+          console.error("Erro ao gerar QRCode:", err);
+          return;
+        }
+        qrDiv.appendChild(canvas);
         console.log("✅ QRCode gerado:", url);
       });
-    });
-
-    socket.on("photos_ready", (photos) => {
-      const container = document.getElementById("photos");
-      container.innerHTML = "";
-      photos.forEach((p, i) => {
-        const img = document.createElement("img");
-        img.src = p;
-        img.width = 200;
-        container.appendChild(img);
-      });
-    });
-
-    document.getElementById("btnEnd").addEventListener("click", () => {
-      if (currentSession) {
-        socket.emit("end_session", currentSession);
-        document.getElementById("photos").innerHTML = "";
-        document.getElementById("qrcode").innerHTML = "";
-        currentSession = null;
-      }
     });
   </script>
 </body>
