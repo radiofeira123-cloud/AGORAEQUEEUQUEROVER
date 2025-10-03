@@ -23,10 +23,17 @@ io.on("connection", (socket) => {
   socket.on("photos_from_cell", (data) => {
     if (data?.session) {
       io.to(data.session).emit("photos_from_cell", data);
-      console.log(`Fotos recebidas na sessão ${data.session}`);
+      console.log(`📸 Fotos recebidas na sessão ${data.session}`);
+    }
+  });
+
+  socket.on("reset_session", (data) => {
+    if (data?.session) {
+      io.to(data.session).emit("reset_session", {});
+      console.log(`♻️ Resetando sessão ${data.session}`);
     }
   });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Servidor rodando na porta", PORT));
+server.listen(PORT, () => console.log("🚀 Servidor rodando na porta", PORT));
