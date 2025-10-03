@@ -1,66 +1,267 @@
-<!DOCTYPE html>
+<!-- public/index.html -->
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cabine Photobooth</title>
-  <script src="/socket.io/socket.io.js"></script>
+  <meta charset="utf-8" />
+  <title>Cabine Fotográfica — Operador</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin-top: 50px;
-      background: #f8f8f8;
-    }
-    #qrcode {
-      margin: 20px auto;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      border: none;
-      border-radius: 8px;
-      background: #007bff;
-      color: white;
-      cursor: pointer;
-      transition: 0.2s;
-    }
-    button:hover {
-      background: #0056b3;
-    }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; background:#111; color:#eee; margin:0; padding:20px; }
+    header{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    button{ padding:10px 14px; border-radius:8px; border:0; background:#0b84ff; color:white; cursor:pointer; margin-right:8px; }
+    .controls{ margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    #qrcode{ margin:12px 0; }
+    #thumbs img{ width:160px; border-radius:6px; margin:6px; border:2px solid #222; background:#222; }
+    canvas{ display:block; margin-top:12px; border:1px solid #333; background:#000; }
+    #log{ margin-top:12px; color:#9f9; }
   </style>
 </head>
 <body>
-  <h1>📸 Cabine Photobooth</h1>
-  <button id="generate">Gerar QRCode para Controle</button>
-  <div id="qrcode"></div>
+  <header>
+    <h1>Cabine Fotográfica — Operador</h1>
+    <div>
+      <button id="genQr">Gerar QR Code Celular</button>
+      <button id="endSession" disabled>Finalizar Sessão</button>
+      <button id="uploadImgbb" disabled>Gerar & Enviar (IMGBB)</button>
+      <button id="printBtn" disabled>Imprimir (9x13)</button>
+    </div>
+  </header>
+
+  <section>
+    <div id="qrcode"></div>
+    <div><strong>Session:</strong> <span id="sessionId">—</span></div>
+    <h3>Fotos recebidas (soltas)</h3>
+    <div id="thumbs"></div>
+
+    <h3>Preview montagem (Stories)</h3>
+    <canvas id="storiesCanvas" width="3375" height="6000"></canvas>
+
+    <h3>Preview impressão (9x13)</h3>
+    <canvas id="printCanvas" width="3322" height="4798"></canvas>
+
+    <div id="log"></div>
+  </section>
 
   <script>
-    const socket = io();
+    // CONFIG
+    const STORIES_COORDS = [
+      { x: 152, y: 572,  w: 2371, h: 1540 },
+      { x: 152, y: 2225, w: 2371, h: 1541 },
+      { x: 155, y: 3885, w: 2365, h: 1546 }
+    ];
+    const PRINT_COORDS = [
+      { x: 150, y: 150,  w: 2216, h: 1434 },
+      { x: 150, y: 1684, w: 2210, h: 1437 },
+      { x: 150, y: 3232, w: 2213, h: 1435 }
+    ];
+    // Put your IMGBB key here if you want uploads:
+    const IMGBB_API_KEY = '6734e028b20f88d5795128d242f85582'; // ex: 'abcdef123456...'
 
-    let currentSession = null;
-
-    document.getElementById("generate").addEventListener("click", () => {
-      socket.emit("create_session");
+    // socket.io connects to same origin by default
+    const socket = io({
+      transports: ["websocket","polling"]
     });
 
-    socket.on("session_created", (sessionId) => {
-      currentSession = sessionId;
-      const url = `https://agoraequeeuquerover.onrender.com/celular.html?session=${sessionId}`;
+    let currentSession = null;
+    let lastPhotos = [];
 
-      const qrDiv = document.getElementById("qrcode");
-      qrDiv.innerHTML = ""; // limpa QR antigo
+    const el = id => document.getElementById(id);
+    const qrcodeEl = el('qrcode');
+    const sessionEl = el('sessionId');
+    const thumbsEl = el('thumbs');
+    const storiesCanvas = el('storiesCanvas');
+    const printCanvas = el('printCanvas');
+    const endBtn = el('endSession');
+    const uploadBtn = el('uploadImgbb');
+    const printBtn = el('printBtn');
+    const logEl = el('log');
 
-      // 🔑 gera o canvas do QR e insere dentro da div
-      QRCode.toCanvas(url, { width: 200 }, function (err, canvas) {
-        if (err) {
-          console.error("Erro ao gerar QRCode:", err);
+    function log(msg){ logEl.textContent = '['+new Date().toLocaleTimeString()+'] '+msg; console.log(msg); }
+
+    // Generate new session
+    el('genQr').addEventListener('click', ()=>{
+      socket.emit('create_session');
+    });
+
+    socket.on('session_created', (id)=>{
+      currentSession = id;
+      sessionEl.textContent = id;
+      qrcodeEl.innerHTML = '';
+      const url = `${location.origin}/celular.html?session=${encodeURIComponent(id)}`;
+      QRCode.toCanvas(url, { width: 200 }, (err, canvas) => {
+        if (err) { console.error(err); return; }
+        qrcodeEl.appendChild(canvas);
+      });
+      endBtn.disabled = false;
+      uploadBtn.disabled = true;
+      printBtn.disabled = true;
+      thumbsEl.innerHTML = '';
+      lastPhotos = [];
+      log('Sessão criada: ' + id);
+      // join our own session (operator listens in)
+      socket.emit('join_room', { session: id });
+    });
+
+    // Receive photos from server
+    socket.on('photos_ready', (photos) => {
+      log('Fotos recebidas: ' + (photos?.length || 0));
+      if (!photos || !photos.length) return;
+      lastPhotos = photos.slice(0,3);
+      renderThumbs(lastPhotos);
+      drawStories(lastPhotos);
+      drawPrint(lastPhotos);
+      uploadBtn.disabled = false;
+      printBtn.disabled = false;
+    });
+
+    socket.on('session_ended', ()=> {
+      log('Sessão finalizada pelo operador');
+    });
+
+    // Finalizar sessão (limpa fotos e manda comando)
+    endBtn.addEventListener('click', ()=>{
+      if (!currentSession) return;
+      socket.emit('end_session', currentSession);
+      sessionEl.textContent = '—';
+      qrcodeEl.innerHTML = '';
+      thumbsEl.innerHTML = '';
+      lastPhotos = [];
+      uploadBtn.disabled = true;
+      printBtn.disabled = true;
+      endBtn.disabled = true;
+      storiesCanvas.getContext('2d').clearRect(0,0,storiesCanvas.width, storiesCanvas.height);
+      printCanvas.getContext('2d').clearRect(0,0,printCanvas.width, printCanvas.height);
+      log('Sessão finalizada localmente');
+      currentSession = null;
+    });
+
+    function renderThumbs(photos){
+      thumbsEl.innerHTML = '';
+      photos.forEach((p, idx) => {
+        const img = document.createElement('img');
+        img.src = p;
+        img.alt = 'photo'+(idx+1);
+        thumbsEl.appendChild(img);
+      });
+    }
+
+    // draw stories montage (caralho.png must be in public/)
+    function drawStories(photos){
+      const ctx = storiesCanvas.getContext('2d');
+      ctx.clearRect(0,0,storiesCanvas.width, storiesCanvas.height);
+      const bg = new Image();
+      bg.src = 'caralho.png';
+      bg.onload = ()=>{
+        ctx.drawImage(bg, 0, 0, storiesCanvas.width, storiesCanvas.height);
+        photos.forEach((p, i)=>{
+          const img = new Image();
+          img.src = p;
+          img.onload = ()=>{
+            const c = STORIES_COORDS[i];
+            if (!c) return;
+            // draw image to fit the target box (cover style)
+            drawImageCover(ctx, img, c.x, c.y, c.w, c.h);
+          };
+        });
+      };
+    }
+
+    // draw print montage (imprimir.png must be in public/)
+    function drawPrint(photos){
+      const ctx = printCanvas.getContext('2d');
+      ctx.clearRect(0,0,printCanvas.width, printCanvas.height);
+      const bg = new Image();
+      bg.src = 'imprimir.png';
+      bg.onload = ()=>{
+        ctx.drawImage(bg, 0, 0, printCanvas.width, printCanvas.height);
+        photos.forEach((p, i)=>{
+          const img = new Image();
+          img.src = p;
+          img.onload = ()=>{
+            const c = PRINT_COORDS[i];
+            if (!c) return;
+            drawImageCover(ctx, img, c.x, c.y, c.w, c.h);
+          };
+        });
+      };
+    }
+
+    // draw image cover (maintain aspect, fill)
+    function drawImageCover(ctx, img, x, y, w, h){
+      const imgRatio = img.width / img.height;
+      const boxRatio = w / h;
+      let sx=0, sy=0, sw=img.width, sh=img.height;
+      if (imgRatio > boxRatio) {
+        // image is wider -> crop sides
+        sh = img.height;
+        sw = img.height * boxRatio;
+        sx = (img.width - sw) / 2;
+      } else {
+        // image is taller -> crop top/bottom
+        sw = img.width;
+        sh = img.width / boxRatio;
+        sy = (img.height - sh) / 2;
+      }
+      ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+    }
+
+    // Upload to IMGBB (individual photos + montage story)
+    async function uploadToImgbb(){
+      if (!IMGBB_API_KEY || IMGBB_API_KEY.includes('PUT_YOUR')) {
+        alert('Coloque sua IMGBB_API_KEY na variável IMGBB_API_KEY do código para habilitar upload.');
+        return;
+      }
+      if (!lastPhotos || !lastPhotos.length) { alert('Nenhuma foto para enviar'); return; }
+
+      log('Enviando fotos para IMGBB...');
+      const uploaded = [];
+      for (let i=0;i<lastPhotos.length;i++){
+        const base = lastPhotos[i].split(',')[1];
+        const form = new FormData();
+        form.append('key', IMGBB_API_KEY);
+        form.append('image', base);
+        try {
+          const res = await fetch('https://api.imgbb.com/1/upload', { method:'POST', body: form });
+          const j = await res.json();
+          uploaded.push(j.data?.url || null);
+          log('uploaded photo '+(i+1)+': ' + (j.data?.url || 'no-url'));
+        } catch(err){
+          console.error(err);
+          alert('Erro ao enviar foto '+(i+1)+': '+err.message);
           return;
         }
-        qrDiv.appendChild(canvas);
-        console.log("✅ QRCode gerado:", url);
-      });
+      }
+
+      // upload montage (stories)
+      const montageBase = storiesCanvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+      const form2 = new FormData();
+      form2.append('key', IMGBB_API_KEY);
+      form2.append('image', montageBase);
+      try {
+        const r2 = await fetch('https://api.imgbb.com/1/upload', { method:'POST', body: form2 });
+        const j2 = await r2.json();
+        log('Montagem enviada: ' + (j2.data?.url || 'no-url'));
+        // show link and QR for visualizador
+        const visualUrl = `${location.origin}/visualizador.html?session=${encodeURIComponent(currentSession)}`;
+        alert('Upload concluído.\nVisualizador: ' + visualUrl + '\nMontagem: ' + (j2.data?.url || ''));
+      } catch (err) {
+        alert('Erro ao enviar montagem: ' + err.message);
+      }
+    }
+
+    uploadBtn.addEventListener('click', uploadToImgbb);
+
+    // Print button -> open print window with printCanvas
+    printBtn.addEventListener('click', ()=>{
+      if (!lastPhotos.length) return alert('Nenhuma foto.');
+      const data = printCanvas.toDataURL('image/png');
+      const w = window.open('');
+      w.document.write('<img src="'+data+'" style="max-width:100%;">');
+      w.document.close();
+      w.focus();
+      setTimeout(()=> w.print(), 700);
     });
   </script>
 </body>
