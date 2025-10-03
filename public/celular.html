@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Cabine Fotográfica</title>
-  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     body, html { margin:0; padding:0; overflow:hidden; background:#000; color:#fff; text-align:center; }
     video, canvas { width:100vw; height:100vh; object-fit:cover; display:none; }
@@ -53,16 +53,14 @@
       btnStart.style.display = "none";
       overlay.innerText = "Preparando câmera...";
 
-      // Ativar câmera frontal
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "user" }
         });
         video.srcObject = stream;
         video.style.display = "block";
-        overlay.innerText = "Clique aqui para começar!";
-        await new Promise(r => setTimeout(r, 2000));
         overlay.innerText = "";
+        await new Promise(r => setTimeout(r, 1000));
         takePhotos();
       } catch (err) {
         overlay.innerText = "Erro ao acessar a câmera!";
@@ -76,42 +74,35 @@
       canvas.height = video.videoHeight;
 
       for (let i = 0; i < 3; i++) {
-        // Contagem regressiva
         for (let t = 5; t > 0; t--) {
           overlay.innerText = (t <= 2 ? "Sorria!" : t);
           if (t === 2) clickSound.play();
           await new Promise(r => setTimeout(r, 1000));
         }
 
-        // Tirar foto
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
         photos.push(dataUrl);
 
-        // Mostrar congelada
         video.style.display = "none";
         canvas.style.display = "block";
         overlay.innerText = "";
         await new Promise(r => setTimeout(r, 3000));
 
-        // Voltar pra câmera (menos na última)
         if (i < 2) {
           video.style.display = "block";
           canvas.style.display = "none";
         }
       }
 
-      // Final
       video.style.display = "none";
       canvas.style.display = "none";
       overlay.innerText = "Obrigado por utilizar a cabine!";
-
-      // Enviar fotos
       socket.emit("photos_from_cell", { session, photos });
     }
 
     socket.on("session_ended", () => {
-      location.reload(); // volta para tela inicial
+      location.reload();
     });
   </script>
 </body>
