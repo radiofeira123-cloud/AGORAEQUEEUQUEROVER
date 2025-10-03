@@ -4,19 +4,30 @@
   <meta charset="UTF-8">
   <title>Cabine Fotográfica - Celular</title>
   <style>
-    body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: black; color: white; font-family: sans-serif; height: 100vh; }
-    video, canvas { max-width: 100%; height: auto; border: 3px solid white; border-radius: 10px; }
+    body { margin: 0; display: flex; align-items: center; justify-content: center; background: black; color: white; font-family: sans-serif; height: 100vh; }
+    #container { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+    video, canvas { width: 100%; height: 100%; object-fit: cover; }
+    #overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 60px; font-weight: bold; color: yellow; text-shadow: 2px 2px 8px black;
+      pointer-events: none;
+    }
+    #controls { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); }
     button { padding: 15px 25px; font-size: 18px; margin: 10px; }
-    #message { font-size: 32px; margin: 20px; }
   </style>
 </head>
 <body>
-  <button id="btnFullscreen">Entrar em Tela Cheia</button>
-  <button id="btnStart" style="display:none;">Clique aqui para começar</button>
-  <div id="message"></div>
-  <video id="video" autoplay playsinline style="display:none;"></video>
-  <canvas id="canvas" style="display:none;"></canvas>
-  <audio id="clickSound" src="clack.mp3"></audio>
+  <div id="controls">
+    <button id="btnFullscreen">Entrar em Tela Cheia</button>
+    <button id="btnStart" style="display:none;">Clique aqui para começar</button>
+  </div>
+  <div id="container">
+    <video id="video" autoplay playsinline style="display:none;"></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <div id="overlay"></div>
+  </div>
+  <audio id="clickSound" src="click.mp3"></audio>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
@@ -27,7 +38,7 @@
     const btnStart = document.getElementById("btnStart");
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
-    const message = document.getElementById("message");
+    const overlay = document.getElementById("overlay");
     const clickSound = document.getElementById("clickSound");
 
     btnFullscreen.onclick = () => {
@@ -53,19 +64,35 @@
       canvas.height = video.videoHeight;
 
       for (let i = 0; i < 3; i++) {
+        // Contagem regressiva
         for (let t = 5; t > 0; t--) {
-          message.innerText = (t <= 2 ? "Sorria!" : t);
+          overlay.innerText = (t <= 2 ? "Sorria!" : t);
           if (t === 2) clickSound.play();
           await new Promise(r => setTimeout(r, 1000));
         }
+
+        // Tirar foto
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
         photos.push(dataUrl);
-        message.innerText = "📸";
+
+        // Mostrar foto congelada
+        video.style.display = "none";
+        canvas.style.display = "block";
+        overlay.innerText = "";
         await new Promise(r => setTimeout(r, 3000));
+
+        // Voltar pra câmera para próxima foto
+        if (i < 2) {
+          video.style.display = "block";
+          canvas.style.display = "none";
+        }
       }
 
-      message.innerText = "Obrigado por utilizar a cabine!";
+      // Final
+      video.style.display = "none";
+      canvas.style.display = "none";
+      overlay.innerText = "Obrigado por utilizar a cabine!";
       socket.emit("photos_from_cell", { session, photos });
     }
 
@@ -77,8 +104,9 @@
 
     // 🔄 Resetar sessão quando operador mandar
     socket.on("reset_session", () => {
-      photos = [];
-      message.innerText = "";
+      overlay.innerText = "";
+      video.style.display = "none";
+      canvas.style.display = "none";
       btnStart.style.display = "inline-block";
     });
 
