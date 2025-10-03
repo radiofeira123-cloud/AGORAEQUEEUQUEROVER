@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <title>Cabine Fotográfica - Operador</title>
-  <script src="/socket.io/socket.io.js"></script>
+  <!-- Socket.IO direto do CDN -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
@@ -22,7 +23,7 @@
   <div id="photos"></div>
 
   <script>
-    const socket = io();
+    const socket = io(); // conecta no mesmo host do server
     let currentSession = null;
 
     const btnNew = document.getElementById("btnNewSession");
