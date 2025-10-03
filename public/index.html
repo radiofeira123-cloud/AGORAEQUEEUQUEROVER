@@ -11,9 +11,13 @@
 </head>
 <body>
   <h1>Cabine Fotográfica - Operador</h1>
+  <div>
+    <button id="btnQRCell">Gerar QR Code Celular</button>
+    <button id="btnUpload">Gerar & Enviar (IMGBB + QR Visualizador)</button>
+    <button id="btnPrint">Imprimir (9x13)</button>
+    <button id="btnReset">Finalizar Sessão</button>
+  </div>
   <div id="photos"></div>
-  <button id="btnUpload">Enviar & QR Code</button>
-  <button id="btnPrint">Imprimir (9x13)</button>
   <div id="qrcode"></div>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
@@ -23,6 +27,16 @@
     const photosDiv = document.getElementById("photos");
     let session = null;
     let photos = [];
+
+    // Gerar QR pro celular
+    document.getElementById("btnQRCell").onclick = () => {
+      session = "sessao_" + Date.now();
+      const url = window.location.origin + "/celular.html?session=" + session;
+      QRCode.toCanvas(document.createElement("canvas"), url, (err, canvas) => {
+        document.getElementById("qrcode").innerHTML = "";
+        document.getElementById("qrcode").appendChild(canvas);
+      });
+    };
 
     socket.on("photos_from_cell", (data) => {
       session = data.session;
@@ -35,9 +49,9 @@
       });
     });
 
-    document.getElementById("btnUpload").onclick = async () => {
+    // Gerar & Enviar
+    document.getElementById("btnUpload").onclick = () => {
       if (!photos.length) return alert("Nenhuma foto recebida!");
-      // Aqui faria upload pro IMGBB
       const url = window.location.origin + "/visualizador.html?session=" + session;
       QRCode.toCanvas(document.createElement("canvas"), url, (err, canvas) => {
         document.getElementById("qrcode").innerHTML = "";
@@ -45,9 +59,20 @@
       });
     };
 
+    // Imprimir
     document.getElementById("btnPrint").onclick = () => {
       if (!photos.length) return alert("Nenhuma foto recebida!");
-      alert("Aqui vamos montar a moldura 9x13 e enviar para impressão!");
+      alert("Aqui vamos montar a moldura 9x13 e mandar imprimir!");
+    };
+
+    // Finalizar sessão
+    document.getElementById("btnReset").onclick = () => {
+      if (!session) return;
+      socket.emit("reset_session", { session });
+      photos = [];
+      photosDiv.innerHTML = "";
+      document.getElementById("qrcode").innerHTML = "";
+      alert("Sessão finalizada!");
     };
   </script>
 </body>
