@@ -6,6 +6,8 @@ const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
+
+// Configuração do socket.io com CORS liberado
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -13,36 +15,41 @@ const io = new Server(server, {
   }
 });
 
+// Sessões guardam fotos
 let sessions = {};
 
-// Servir arquivos estáticos
+// Servir arquivos estáticos da pasta public
 app.use(express.static(path.join(__dirname, "public")));
 
-// Rota raiz
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public/index.html"));
 });
 
+// Socket.IO
 io.on("connection", (socket) => {
-  console.log("Novo cliente conectado:", socket.id);
+  console.log("📡 Novo cliente:", socket.id);
 
+  // Criar sessão
   socket.on("create_session", () => {
     const sessionId = uuidv4();
     sessions[sessionId] = { photos: [] };
     socket.emit("session_created", sessionId);
   });
 
+  // Entrar numa sessão
   socket.on("join_session", (session) => {
     socket.join(session);
-    console.log(`Celular entrou na sessão ${session}`);
+    console.log(`📱 Celular entrou na sessão ${session}`);
   });
 
+  // Receber fotos do celular
   socket.on("photos_from_cell", ({ session, photos }) => {
-    console.log("📸 Recebi fotos da sessão", session);
+    console.log(`📸 Recebi ${photos.length} fotos da sessão ${session}`);
     sessions[session] = { photos };
     io.to(session).emit("photos_ready", photos);
   });
 
+  // Finalizar sessão
   socket.on("end_session", (session) => {
     delete sessions[session];
     io.to(session).emit("session_ended");
