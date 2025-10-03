@@ -2,73 +2,62 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Cabine Fotográfica - Operador</title>
-  <!-- Socket.IO direto do CDN -->
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-    button { margin: 10px; padding: 10px 20px; font-size: 16px; }
-    #qrcode { margin: 20px auto; }
-    #photos img { width: 200px; margin: 10px; border: 2px solid #000; }
-  </style>
+  <title>Cabine Fotográfica - Controle</title>
 </head>
 <body>
-  <h1>📸 Painel da Cabine</h1>
-  <button id="btnNewSession">Gerar QR Code para Celular</button>
-  <button id="btnEndSession" style="display:none;">Finalizar Sessão</button>
+  <h1>Cabine Fotográfica - PC</h1>
+  <button id="btnCreate">Gerar QR Code Celular</button>
   <div id="qrcode"></div>
 
-  <h2>Fotos recebidas</h2>
+  <button id="btnEnd">Finalizar Sessão</button>
+
+  <h2>Fotos recebidas:</h2>
   <div id="photos"></div>
 
+  <!-- QRCode e Socket.IO -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+
   <script>
-    const socket = io(); // conecta no mesmo host do server
-    let currentSession = null;
-
-    const btnNew = document.getElementById("btnNewSession");
-    const btnEnd = document.getElementById("btnEndSession");
-    const qrcodeDiv = document.getElementById("qrcode");
-    const photosDiv = document.getElementById("photos");
-
-    btnNew.onclick = () => {
-      socket.emit("create_session");
-    };
-
-    socket.on("session_created", sessionId => {
-      currentSession = sessionId;
-      qrcodeDiv.innerHTML = "";
-      QRCode.toCanvas(
-        `https://${window.location.host}/celular.html?session=${sessionId}`,
-        { width: 200 },
-        (err, canvas) => {
-          if (!err) qrcodeDiv.appendChild(canvas);
-        }
-      );
-      btnNew.style.display = "none";
-      btnEnd.style.display = "inline-block";
-      photosDiv.innerHTML = "";
+    // Conectar ao servidor Render
+    const socket = io("https://agoraequeeuquerover.onrender.com", {
+      transports: ["websocket", "polling"]
     });
 
-    socket.on("photos_ready", photos => {
-      photosDiv.innerHTML = "";
-      photos.forEach(p => {
-        const img = document.createElement("img");
-        img.src = p;
-        photosDiv.appendChild(img);
+    let currentSession = null;
+
+    document.getElementById("btnCreate").addEventListener("click", () => {
+      socket.emit("create_session");
+    });
+
+    socket.on("session_created", (sessionId) => {
+      currentSession = sessionId;
+      const url = `https://agoraequeeuquerover.onrender.com/celular.html?session=${sessionId}`;
+      QRCode.toCanvas(document.getElementById("qrcode"), url, function (error) {
+        if (error) console.error(error);
+        console.log("✅ QRCode gerado:", url);
       });
     });
 
-    btnEnd.onclick = () => {
+    socket.on("photos_ready", (photos) => {
+      const container = document.getElementById("photos");
+      container.innerHTML = "";
+      photos.forEach((p, i) => {
+        const img = document.createElement("img");
+        img.src = p;
+        img.width = 200;
+        container.appendChild(img);
+      });
+    });
+
+    document.getElementById("btnEnd").addEventListener("click", () => {
       if (currentSession) {
         socket.emit("end_session", currentSession);
+        document.getElementById("photos").innerHTML = "";
+        document.getElementById("qrcode").innerHTML = "";
         currentSession = null;
-        qrcodeDiv.innerHTML = "";
-        btnNew.style.display = "inline-block";
-        btnEnd.style.display = "none";
-        photosDiv.innerHTML = "";
       }
-    };
+    });
   </script>
 </body>
 </html>
