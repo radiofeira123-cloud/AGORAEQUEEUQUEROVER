@@ -1,41 +1,36 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Visualizador</title>
-  <script src="/socket.io/socket.io.js"></script>
+  <title>Visualizador de Fotos</title>
+  <style>
+    body { margin: 0; display: flex; flex-wrap: wrap; justify-content: center; background: black; color: white; }
+    img { max-width: 30%; margin: 10px; border-radius: 10px; border: 3px solid white; }
+  </style>
 </head>
 <body>
-  <h1>Visualizador de Fotos</h1>
-  <div id="photos"></div>
+  <h1>Suas Fotos</h1>
+  <div id="gallery"></div>
 
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const session = urlParams.get("session");
-    const socket = io("https://agoraequeeuquerover.onrender.com", {
-      transports: ["websocket", "polling"]
+    const params = new URLSearchParams(window.location.search);
+    const session = params.get("session");
+    const gallery = document.getElementById("gallery");
+    const socket = io("https://agoraequeeuquerover.onrender.com");
+
+    socket.emit("join_room", { session });
+
+    socket.on("photos_from_cell", (data) => {
+      if (data.session === session) {
+        gallery.innerHTML = "";
+        data.photos.forEach(p => {
+          let img = document.createElement("img");
+          img.src = p;
+          gallery.appendChild(img);
+        });
+      }
     });
-    socket.emit('join_room', { session });
-
-    async function loadInitial() {
-      const res = await fetch("/session/" + session);
-      const data = await res.json();
-      if (data.photos) show(data.photos);
-    }
-    loadInitial();
-
-    socket.on('photos_from_cell', (data) => show(data.photos));
-
-    function show(photos) {
-      const div = document.getElementById('photos');
-      div.innerHTML = "";
-      photos.forEach(p=>{
-        const img = new Image();
-        img.src = p;
-        img.width=200;
-        div.appendChild(img);
-      });
-    }
   </script>
 </body>
 </html>
