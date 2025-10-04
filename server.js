@@ -3,7 +3,6 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const crypto = require('crypto');
-const fetch = require('node-fetch');
 
 const app = express();
 
@@ -34,10 +33,11 @@ const viewerSessions = {};
 
 const IMGBB_API_KEY = "6734e028b20f88d5795128d242f85582";
 
-// Função para upload no IMGBB
+// Função para upload no IMGBB usando fetch nativo
 async function uploadToImgbb(imageData) {
   try {
     const base64Data = imageData.split(',')[1];
+    
     const formData = new URLSearchParams();
     formData.append('key', IMGBB_API_KEY);
     formData.append('image', base64Data);
@@ -51,7 +51,7 @@ async function uploadToImgbb(imageData) {
     if (data.success) {
       return data.data.url;
     } else {
-      throw new Error('Upload failed');
+      throw new Error('Upload failed: ' + (data.error?.message || 'Unknown error'));
     }
   } catch (error) {
     console.error('❌ Erro no upload IMGBB:', error);
@@ -89,7 +89,13 @@ io.on('connection', (socket) => {
         if (imgbbUrl) {
           uploadedUrls.push(imgbbUrl);
           console.log(`✅ Foto ${i+1} enviada: ${imgbbUrl}`);
+        } else {
+          console.log(`❌ Falha no upload da foto ${i+1}`);
         }
+      }
+
+      if (uploadedUrls.length === 0) {
+        throw new Error('Nenhuma foto foi enviada com sucesso para o IMGBB');
       }
 
       // Criar sessão do visualizador
@@ -186,4 +192,5 @@ setInterval(() => {
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log('🚀 Server listening on port', PORT);
+  console.log('📸 Sistema de cabine fotográfica rodando!');
 });
