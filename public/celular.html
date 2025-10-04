@@ -38,7 +38,7 @@
   </style>
 </head>
 <body>
-  <!-- ENTER FULLSCREEN -->
+  <!-- ENTER FULLSCREEN - SEMPRE VISÍVEL NA PRIMEIRA VEZ -->
   <div id="enterFs" class="screen" style="background:linear-gradient(135deg,#040404,#0d1b2a)">
     <button id="enterFsBtn">Entrar em Tela Cheia (operador)</button>
   </div>
@@ -70,7 +70,15 @@
 
   <script>
     const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
-    const socket = io(SERVER_URL, { transports: ['polling'], reconnection: true });
+    
+    // Socket.IO com configuração robusta
+    const socket = io(SERVER_URL, {
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      timeout: 20000
+    });
 
     const params = new URLSearchParams(location.search);
     const session = params.get('session');
@@ -89,48 +97,75 @@
     let stream = null;
     let photos = [];
 
-    // Entrar na sala da sessão
-    if (session) socket.emit('join_room', { session });
+    // Debug no console
+    console.log('📱 Celular iniciado, sessão:', session);
 
-    // Verificar se já entrou em tela cheia antes
-    const fsDone = localStorage.getItem('cabine_fs_done');
-    if (fsDone === '1') {
-      enterFs.style.display = 'none';
-      welcomeScreen.style.display = 'flex';
-      // Entrar em tela cheia automaticamente se já tiver sido feito antes
-      setTimeout(() => {
-        enterFullscreen();
-      }, 500);
-    } else {
-      enterFs.style.display = 'flex';
-      welcomeScreen.style.display = 'none';
+    // Eventos de conexão Socket.IO
+    socket.on('connect', () => {
+      console.log('✅ Celular CONECTADO ao servidor');
+      
+      // Entrar na sala da sessão
+      if (session) {
+        socket.emit('join_room', { session });
+        console.log('✅ Celular entrou na sala:', session);
+      }
+    });
+
+    socket.on('disconnect', () => {
+      console.log('❌ Celular DESCONECTADO do servidor');
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('❌ Erro de conexão celular:', error);
+    });
+
+    // Entrar na sala da sessão IMEDIATAMENTE
+    if (session) {
+      console.log('🔼 Tentando entrar na sala:', session);
+      socket.emit('join_room', { session });
     }
+
+    // VERIFICAÇÃO SIMPLES - Sem localStorage complexo
+    // Sempre mostrar tela cheia primeiro, depois welcome
+    enterFs.style.display = 'flex';
+    welcomeScreen.style.display = 'none';
+    thankScreen.style.display = 'none';
 
     // Função para entrar em tela cheia
     function enterFullscreen() {
       try {
         const el = document.documentElement;
-        if (el.requestFullscreen) el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
-        else if (el.msRequestFullscreen) el.msRequestFullscreen();
+        if (el.requestFullscreen) {
+          el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+          el.webkitRequestFullscreen();
+        } else if (el.mozRequestFullScreen) {
+          el.mozRequestFullScreen();
+        } else if (el.msRequestFullscreen) {
+          el.msRequestFullscreen();
+        }
+        console.log('🖥️ Tentando entrar em tela cheia');
       } catch (e) { 
-        console.warn('fullscreen failed', e); 
+        console.warn('❌ Fullscreen falhou', e); 
       }
     }
 
-    // ENTRAR EM TELA CHEIA
+    // ENTRAR EM TELA CHEIA - BOTÃO CLARAMENTE VISÍVEL
     enterFsBtn.addEventListener('click', async () => {
+      console.log('🖱️ Botão tela cheia clicado');
       enterFullscreen();
       
-      // Marcar que já entrou em tela cheia
-      localStorage.setItem('cabine_fs_done', '1');
-      enterFs.style.display = 'none';
-      welcomeScreen.style.display = 'flex';
+      // Mostrar welcome screen após tentativa de fullscreen
+      setTimeout(() => {
+        enterFs.style.display = 'none';
+        welcomeScreen.style.display = 'flex';
+        console.log('👋 Mostrando tela de boas-vindas');
+      }, 500);
     });
 
     // BOTÃO INICIAR
     startBtn.addEventListener('click', async () => {
+      console.log('🎬 Iniciando sequência de fotos');
       welcomeScreen.style.display = 'none';
       await startCamera();
       await runCaptureSequence();
@@ -138,6 +173,7 @@
 
     async function startCamera() {
       try {
+        console.log('📷 Iniciando câmera...');
         // Usar resolução máxima da câmera
         stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
@@ -149,7 +185,9 @@
         });
         videoEl.srcObject = stream;
         videoEl.style.display = 'block';
+        console.log('✅ Câmera iniciada com sucesso');
       } catch (e) {
+        console.error('❌ Erro câmera principal:', e);
         // Se falhar, tentar com configuração básica
         try {
           stream = await navigator.mediaDevices.getUserMedia({ 
@@ -158,9 +196,10 @@
           });
           videoEl.srcObject = stream;
           videoEl.style.display = 'block';
+          console.log('✅ Câmera iniciada (modo básico)');
         } catch (err) {
+          console.error('❌ Erro câmera básica:', err);
           alert('Erro ao acessar a câmera: ' + err.message);
-          console.error(err);
         }
       }
     }
@@ -177,9 +216,12 @@
 
     async function runCaptureSequence() {
       photos = [];
+      console.log('🔄 Iniciando captura de 3 fotos');
       
       // 3 fotos
       for (let shot = 0; shot < 3; shot++) {
+        console.log(`📸 Foto ${shot + 1}/3`);
+        
         // Countdown 5 -> 1
         for (let t = 5; t > 0; t--) {
           if (t <= 2) {
@@ -188,7 +230,10 @@
               try { 
                 clack.currentTime = 0; 
                 await clack.play(); 
-              } catch(e){ }
+                console.log('🔊 Som clack reproduzido');
+              } catch(e){ 
+                console.log('🔇 Audio clack não pode ser reproduzido');
+              }
             }
           } else {
             countdownEl.textContent = String(t);
@@ -205,6 +250,8 @@
         ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
         const data = canvasEl.toDataURL('image/jpeg', 0.95); // Qualidade alta
         photos.push(data);
+
+        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height}`);
 
         // Mostrar preview da foto por 3s
         videoEl.style.display = 'none';
@@ -223,17 +270,20 @@
 
       // Enviar fotos para o servidor
       if (session) {
+        console.log(`📤 Enviando ${photos.length} fotos para servidor, sessão: ${session}`);
         socket.emit('photos_from_cell', { session, photos });
+        
+        // Debug extra
+        console.log('✅ Fotos enviadas para o servidor');
       } else {
-        console.warn('Nenhuma session presente — fotos não enviadas.');
+        console.warn('❌ Nenhuma sessão - fotos não enviadas');
       }
     }
 
     // Reset quando operador finaliza sessão
     socket.on('reset_session', ({ session: s }) => {
       if (!s || s === session) {
-        // NÃO sair do fullscreen - manter em tela cheia
-        // try { if (document.fullscreenElement) document.exitFullscreen(); } catch(e){}
+        console.log('🔄 Reset session recebido - voltando para início');
         
         // Resetar interface
         stopCamera();
@@ -242,14 +292,22 @@
         thankScreen.style.display = 'none';
         countdownEl.textContent = '';
         msgEl.textContent = '';
+        
+        // Voltar para welcome screen (NÃO para tela cheia)
         welcomeScreen.style.display = 'flex';
         
-        // Garantir que está em tela cheia
-        setTimeout(() => {
-          enterFullscreen();
-        }, 100);
+        console.log('✅ Celular resetado para tela inicial');
       }
     });
+
+    // Forçar exibição do botão de tela cheia se algo der errado
+    setTimeout(() => {
+      if (enterFs.style.display === 'none' && welcomeScreen.style.display === 'none') {
+        console.log('⚠️ Corrigindo estado da interface');
+        enterFs.style.display = 'flex';
+        welcomeScreen.style.display = 'none';
+      }
+    }, 2000);
   </script>
 </body>
 </html>
