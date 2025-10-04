@@ -138,15 +138,30 @@
 
     async function startCamera() {
       try {
+        // Usar resolução máxima da câmera
         stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'user' }, 
+          video: { 
+            facingMode: 'user',
+            width: { ideal: 3264 },
+            height: { ideal: 1836 }
+          }, 
           audio: false 
         });
         videoEl.srcObject = stream;
         videoEl.style.display = 'block';
       } catch (e) {
-        alert('Erro ao acessar a câmera: ' + e.message);
-        console.error(e);
+        // Se falhar, tentar com configuração básica
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'user' }, 
+            audio: false 
+          });
+          videoEl.srcObject = stream;
+          videoEl.style.display = 'block';
+        } catch (err) {
+          alert('Erro ao acessar a câmera: ' + err.message);
+          console.error(err);
+        }
       }
     }
 
@@ -183,12 +198,12 @@
         
         countdownEl.textContent = '';
         
-        // Capturar foto
-        canvasEl.width = videoEl.videoWidth || 1280;
-        canvasEl.height = videoEl.videoHeight || 720;
+        // Capturar foto com resolução máxima
+        canvasEl.width = videoEl.videoWidth;
+        canvasEl.height = videoEl.videoHeight;
         const ctx = canvasEl.getContext('2d');
         ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-        const data = canvasEl.toDataURL('image/jpeg', 0.92);
+        const data = canvasEl.toDataURL('image/jpeg', 0.95); // Qualidade alta
         photos.push(data);
 
         // Mostrar preview da foto por 3s
