@@ -1,4 +1,4 @@
-<!-- public/celular.html -->
+<!-- public/celular.html - MANTIDO IGUAL -->
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -20,12 +20,10 @@
   </style>
 </head>
 <body>
-  <!-- ENTER FULLSCREEN (clicar 1x no início do turno) -->
   <div id="enterFs" class="screen" style="background:linear-gradient(135deg,#040404,#0d1b2a)">
     <button id="enterFsBtn">Entrar em Tela Cheia (operador)</button>
   </div>
 
-  <!-- WELCOME (clique para iniciar, fundo, sem câmera) -->
   <div id="welcomeScreen" class="screen" style="display:none">
     <div id="welcome">
       <h1>📸 Bem-vindo à Cabine Fotográfica</h1>
@@ -34,13 +32,11 @@
     </div>
   </div>
 
-  <!-- CAMERA VIEW -->
   <video id="videoEl" autoplay playsinline muted></video>
   <canvas id="canvasEl"></canvas>
   <div id="countdown"></div>
   <div id="msg"></div>
 
-  <!-- THANK YOU -->
   <div id="thankScreen" class="screen" style="display:none">
     <div id="thank">
       <h1>✨ Obrigado por utilizar a cabine!</h1>
@@ -71,10 +67,8 @@
     let stream = null;
     let photos = [];
 
-    // join the session room as soon as possible (if session provided)
     if (session) socket.emit('join_room', { session });
 
-    // show or hide initial "enter fullscreen" depending on flag
     const fsDone = localStorage.getItem('cabine_fs_done');
     if (fsDone === '1') {
       enterFs.style.display = 'none';
@@ -84,23 +78,20 @@
       welcomeScreen.style.display = 'none';
     }
 
-    // ENTER fullscreen (operator clicks once at start of shift)
     enterFsBtn.addEventListener('click', async () => {
       try {
         const el = document.documentElement;
         if (el.requestFullscreen) await el.requestFullscreen();
         else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
       } catch (e) { console.warn('fullscreen failed', e); }
-      // hide button permanently (until clear localStorage)
+      
       localStorage.setItem('cabine_fs_done', '1');
       enterFs.style.display = 'none';
       welcomeScreen.style.display = 'flex';
 
-      // notify operator to hide QR
       if (session) socket.emit('cell_entered_fullscreen', { session });
     });
 
-    // START button (user starts a session run)
     startBtn.addEventListener('click', async () => {
       welcomeScreen.style.display = 'none';
       await startCamera();
@@ -130,16 +121,12 @@
 
     async function runCaptureSequence() {
       photos = [];
-      // 3 fotos
       for (let shot = 0; shot < 3; shot++) {
-        // countdown 5 -> 1
         for (let t = 5; t > 0; t--) {
-          // last two seconds show 'Sorria!' and play clack at t===2
           if (t <= 2) {
             countdownEl.textContent = 'SORRIA!';
-            // play clack once when t == 2
             if (t === 2) {
-              try { clack.currentTime = 0; await clack.play(); } catch(e){ /* autoplay restrictions */ }
+              try { clack.currentTime = 0; await clack.play(); } catch(e){ }
             }
           } else {
             countdownEl.textContent = String(t);
@@ -147,16 +134,14 @@
           await sleep(1000);
         }
         countdownEl.textContent = '';
-        // capture
+        
         canvasEl.width = videoEl.videoWidth || 1280;
         canvasEl.height = videoEl.videoHeight || 720;
         const ctx = canvasEl.getContext('2d');
-        // don't mirror: draw as-is
         ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
         const data = canvasEl.toDataURL('image/jpeg', 0.92);
         photos.push(data);
 
-        // freeze the photo on screen for 3s
         videoEl.style.display = 'none';
         canvasEl.style.display = 'block';
         msgEl.textContent = '';
@@ -165,14 +150,11 @@
         videoEl.style.display = 'block';
       }
 
-      // finished
       stopCamera();
       countdownEl.textContent = '';
       msgEl.textContent = '';
-      // show thank-you screen (no camera visible)
       thankScreen.style.display = 'flex';
 
-      // emit photos to server
       if (session) {
         socket.emit('photos_from_cell', { session, photos });
       } else {
@@ -180,12 +162,9 @@
       }
     }
 
-    // When operator finalizes the session: server emits reset_session -> celular should go back to welcome
     socket.on('reset_session', ({ session: s }) => {
       if (!s || s === session) {
-        // leave fullscreen if present
         try { if (document.fullscreenElement) document.exitFullscreen(); } catch(e){}
-        // hide camera + thank, show welcome
         stopCamera();
         canvasEl.style.display = 'none';
         videoEl.style.display = 'none';
@@ -195,9 +174,6 @@
         welcomeScreen.style.display = 'flex';
       }
     });
-
-    // Keep the UI simple if the operator requested a reset via 'end_session' directly
-    // (server already broadcasts reset_session)
   </script>
 </body>
 </html>
