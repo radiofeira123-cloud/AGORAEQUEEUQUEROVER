@@ -50,11 +50,9 @@
   <div id="log"></div>
 
   <script>
-    // CONFIG: troque se teu servidor estiver em outro host
     const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
-    const IMGBB_API_KEY = "6734e028b20f88d5795128d242f85582"; // coloca tua chave aqui (opcional)
+    const IMGBB_API_KEY = "6734e028b20f88d5795128d242f85582";
 
-    // Coordenadas conforme enviado por você
     const STORIES_COORDS = [
       { x: 152, y: 572,  w: 2371, h: 1540 },
       { x: 152, y: 2225, w: 2371, h: 1541 },
@@ -66,7 +64,6 @@
       { x: 150, y: 3232, w: 2213, h: 1435 }
     ];
 
-    // usa polling (compatível com Render) — se teu servidor suporta websocket direto, podes remover transports
     const socket = io(SERVER_URL, { transports: ['polling'], reconnection: true });
 
     const el = id => document.getElementById(id);
@@ -84,30 +81,47 @@
       console.log(msg);
     }
 
-    // Gera sessão (faz apenas 1x no início do turno)
-    genQrBtn.addEventListener('click', ()=> {
+    // 🔥 MUDANÇA PRINCIPAL: Criar sessão automaticamente ao carregar a página
+    window.addEventListener('DOMContentLoaded', () => {
+      console.log('🔄 Criando sessão automaticamente...');
       socket.emit('create_session');
     });
 
-    socket.on('session_created', (id) => {
-      currentSession = id;
-      sessionIdEl.textContent = id;
+    // Gera QR Code (apenas para exibir/regenerar o QR code da sessão atual)
+    genQrBtn.addEventListener('click', ()=> {
+      if (!currentSession) {
+        log('Aguarde, criando sessão...');
+        return;
+      }
+      generateQrCode();
+    });
+
+    function generateQrCode() {
       qrcodeEl.innerHTML = '';
-      // cria canvas QR
-      const url = `${SERVER_URL}/celular.html?session=${encodeURIComponent(id)}`;
+      const url = `${SERVER_URL}/celular.html?session=${encodeURIComponent(currentSession)}`;
       const canvas = document.createElement('canvas');
       QRCode.toCanvas(canvas, url, { width: 220 }, (err) => {
         if (err) { console.error(err); return; }
       });
       qrcodeEl.appendChild(canvas);
-      log('Sessão criada: ' + id);
-      genQrBtn.disabled = true;       // não gerar outra sessão enquanto esta ativa
+      log('QR Code gerado para a sessão: ' + currentSession);
+    }
+
+    socket.on('session_created', (id) => {
+      currentSession = id;
+      sessionIdEl.textContent = id;
+      
+      // Gera QR code automaticamente ao criar sessão
+      generateQrCode();
+      
+      log('Sessão criada automaticamente: ' + id);
+      genQrBtn.disabled = false;
       finalizarBtn.disabled = false;
-      // operator joins room to receive photos
+      
+      // Operator joins room to receive photos
       socket.emit('join_room', { session: id });
     });
 
-    // quando celular avisa que entrou em fullscreen -> esconde QR
     socket.on('cell_entered_fullscreen', ({ session }) => {
       if (session === currentSession) {
         qrcodeEl.style.display = 'none';
@@ -115,7 +129,6 @@
       }
     });
 
-    // fotos prontas (server reenvia para operator)
     socket.on('photos_ready', (photos) => {
       if (!Array.isArray(photos)) return;
       lastPhotos = photos.slice(0,3);
@@ -127,20 +140,22 @@
       log('Fotos recebidas e renderizadas.');
     });
 
-    // Finalizar sessão (operator)
+    // Finalizar sessão (NÃO cria nova sessão, apenas reseta)
     finalizarBtn.addEventListener('click', () => {
       if (!currentSession) return alert('Nenhuma sessão ativa.');
-      // pede ao servidor resetar o celular e limpar fotos (mas mantém session id)
+      
       socket.emit('end_session', currentSession);
-      // local cleanup display (keep currentSession so celular remains paired)
+      
+      // Limpa apenas as fotos localmente, mantém a mesma sessão
       thumbsEl.innerHTML = '';
       lastPhotos = [];
       uploadBtn.disabled = true;
       printBtn.disabled = true;
-      log('Finalizar sessão enviado (celular deve voltar à tela inicial).');
+      
+      log('Sessão finalizada - celular voltou para tela inicial');
+      log('Pronto para próxima sessão com MESMA sessão: ' + currentSession);
     });
 
-    // Render thumbs
     function renderThumbs(){
       thumbsEl.innerHTML = '';
       lastPhotos.forEach((p, idx) => {
@@ -151,7 +166,6 @@
       });
     }
 
-    // draw helper (cover)
     function drawImageCover(ctx, img, x, y, w, h){
       const imgRatio = img.width / img.height;
       const boxRatio = w / h;
@@ -202,7 +216,6 @@
       };
     }
 
-    // Upload IMGBB (client side)
     uploadBtn.addEventListener('click', async () => {
       if (!IMGBB_API_KEY) return alert('Coloque IMGBB_API_KEY no código para habilitar upload.');
       if (!lastPhotos.length) return alert('Nenhuma foto.');
@@ -215,7 +228,6 @@
           const j = await res.json();
           log('Foto ' + (i+1) + ' enviada: ' + (j.data?.url || 'sem-url'));
         }
-        // enviar montagem stories também
         const montage = storiesCanvas.toDataURL('image/jpeg', 0.92).split(',')[1];
         const fd2 = new FormData(); fd2.append('key', IMGBB_API_KEY); fd2.append('image', montage);
         const r2 = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: fd2 });
@@ -225,7 +237,6 @@
       } catch (e) { console.error(e); alert('Erro no upload: ' + e.message); }
     });
 
-    // Print
     printBtn.addEventListener('click', () => {
       if (!lastPhotos.length) return alert('Nenhuma foto.');
       const data = printCanvas.toDataURL('image/png');
@@ -234,7 +245,6 @@
       w.document.close();
       setTimeout(()=> w.print(), 700);
     });
-
   </script>
 </body>
 </html>
