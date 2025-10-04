@@ -149,9 +149,11 @@ io.on('connection', (socket) => {
     }
     socket.join(session);
     console.log(`🔗 ${socket.id} joined ${session}`);
+    
+    // Se já existem fotos nesta sessão, enviar para o cliente
     if (sessions[session] && sessions[session].photos && sessions[session].photos.length) {
       socket.emit('photos_ready', sessions[session].photos);
-      console.log(`📸 Sent existing photos to ${socket.id}`);
+      console.log(`📸 Sent existing ${sessions[session].photos.length} photos to ${socket.id}`);
     }
   });
 
@@ -174,9 +176,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  // celular -> server: photos_from_cell - COM CONFIRMAÇÃO
-  socket.on('photos_from_cell', ({ session, photos }, callback) => {
-    console.log(`📸 Received photos_from_cell for session: ${session}`, {
+  // celular -> server: photos_from_cell - GARANTIR RECEBIMENTO
+  socket.on('photos_from_cell', ({ session, photos }) => {
+    console.log(`📸 RECEBENDO FOTOS DO CELULAR - session: ${session}`, {
       photosCount: photos ? photos.length : 0,
       socketId: socket.id,
       origin: socket.handshake.headers.origin
@@ -184,13 +186,11 @@ io.on('connection', (socket) => {
 
     if (!session) {
       console.warn('❌ photos_from_cell missing session');
-      if (callback) callback({ status: 'error', message: 'Session missing' });
       return;
     }
     
     if (!Array.isArray(photos)) {
       console.warn('❌ photos not array in photos_from_cell');
-      if (callback) callback({ status: 'error', message: 'Photos not array' });
       return;
     }
 
@@ -203,19 +203,14 @@ io.on('connection', (socket) => {
     sessions[session].photos = photos.slice();
     sessions[session].lastUpdated = new Date().toISOString();
     
-    console.log(`✅ Stored ${photos.length} photos for session ${session}`);
+    console.log(`✅ ARMAZENADAS ${photos.length} fotos para sessão ${session}`);
     
-    // Enviar confirmação para o celular
-    if (callback) {
-      callback({ status: 'received', count: photos.length });
-    }
+    // ENVIAR PARA TODOS NA SALA (OPERADOR) - GARANTIDO
+    const roomClients = io.sockets.adapter.rooms.get(session);
+    console.log(`📤 Enviando fotos para sala ${session} - clientes conectados:`, roomClients ? roomClients.size : 0);
     
-    // Enviar confirmação adicional
-    socket.emit('photos_received', { count: photos.length, session });
-    
-    // Broadcast to everyone in that room (operator) - GARANTIDO
     io.to(session).emit('photos_ready', photos);
-    console.log(`📤 Broadcasted photos to room ${session} - connected clients:`, io.sockets.adapter.rooms.get(session)?.size || 0);
+    console.log(`✅ FOTOS ENVIADAS PARA O OPERADOR - ${photos.length} fotos`);
   });
 
   // celular informs it entered fullscreen
