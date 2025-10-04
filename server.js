@@ -6,25 +6,11 @@ const crypto = require('crypto');
 
 const app = express();
 
-// CORS AMPLIADO para todas as origens necessárias
+// CORS MÁXIMO - PERMITIR TUDO
 app.use((req, res, next) => {
-  const allowedOrigins = [
-    'https://agoraequeeuquerover.vercel.app',
-    'https://agoraequeeuquerover.onrender.com',
-    'http://localhost:3000',
-    'http://localhost:10000',
-    'http://localhost:8080'
-  ];
-  
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-socket-id');
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-socket-id');
   res.header('Access-Control-Allow-Credentials', 'true');
   
   if (req.method === 'OPTIONS') {
@@ -39,19 +25,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const server = http.createServer(app);
 
-// Socket.IO com CORS ampliado
+// Socket.IO com CORS MÁXIMO
 const io = new Server(server, {
   cors: {
-    origin: [
-      'https://agoraequeeuquerover.vercel.app',
-      'https://agoraequeeuquerover.onrender.com',
-      'http://localhost:3000',
-      'http://localhost:10000',
-      'http://localhost:8080'
-    ],
-    methods: ['GET', 'POST'],
-    credentials: true,
-    allowedHeaders: ['*']
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["*"],
+    credentials: true
   },
   transports: ['polling', 'websocket'],
   pingTimeout: 60000,
@@ -137,10 +117,6 @@ io.on('connection', (socket) => {
         } else {
           console.log('❌ Falha no upload da moldura do stories');
         }
-      }
-
-      if (uploadedUrls.length === 0) {
-        throw new Error('Nenhuma foto foi enviada com sucesso para o IMGBB');
       }
 
       // Criar sessão do visualizador
@@ -286,4 +262,5 @@ setInterval(() => {
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log('🚀 Server listening on port', PORT);
+  console.log('🔓 CORS totalmente liberado para todas as origens');
 });
