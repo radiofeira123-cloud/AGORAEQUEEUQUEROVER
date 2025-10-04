@@ -174,20 +174,23 @@ io.on('connection', (socket) => {
     }
   });
 
-  // celular -> server: photos_from_cell
-  socket.on('photos_from_cell', ({ session, photos }) => {
+  // celular -> server: photos_from_cell - COM CONFIRMAÇÃO
+  socket.on('photos_from_cell', ({ session, photos }, callback) => {
     console.log(`📸 Received photos_from_cell for session: ${session}`, {
       photosCount: photos ? photos.length : 0,
-      socketId: socket.id
+      socketId: socket.id,
+      origin: socket.handshake.headers.origin
     });
 
     if (!session) {
       console.warn('❌ photos_from_cell missing session');
+      if (callback) callback({ status: 'error', message: 'Session missing' });
       return;
     }
     
     if (!Array.isArray(photos)) {
       console.warn('❌ photos not array in photos_from_cell');
+      if (callback) callback({ status: 'error', message: 'Photos not array' });
       return;
     }
 
@@ -202,9 +205,17 @@ io.on('connection', (socket) => {
     
     console.log(`✅ Stored ${photos.length} photos for session ${session}`);
     
-    // Broadcast to everyone in that room (operator)
+    // Enviar confirmação para o celular
+    if (callback) {
+      callback({ status: 'received', count: photos.length });
+    }
+    
+    // Enviar confirmação adicional
+    socket.emit('photos_received', { count: photos.length, session });
+    
+    // Broadcast to everyone in that room (operator) - GARANTIDO
     io.to(session).emit('photos_ready', photos);
-    console.log(`📤 Broadcasted photos to room ${session}`);
+    console.log(`📤 Broadcasted photos to room ${session} - connected clients:`, io.sockets.adapter.rooms.get(session)?.size || 0);
   });
 
   // celular informs it entered fullscreen
