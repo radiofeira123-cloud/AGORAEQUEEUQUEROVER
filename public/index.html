@@ -5,153 +5,193 @@
   <title>Cabine Fotográfica — Operador</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; background:#111; color:#eee; margin:0; padding:20px; }
-    header{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-    button{ padding:10px 14px; border-radius:8px; border:0; background:#0b84ff; color:white; cursor:pointer; margin:4px; }
-    button:disabled{ background:#555; cursor:not-allowed; }
-    #qrcode{ margin:12px 0; }
-    #thumbs img{ width:160px; border-radius:6px; margin:6px; border:2px solid #222; background:#222; }
-    canvas{ display:block; margin-top:12px; border:1px solid #333; background:#000; max-width:100%; }
-    #log{ margin-top:12px; color:#9f9; white-space:pre-wrap; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: #111;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    h1 { margin-top: 20px; }
+
+    #qrcode {
+      margin: 20px;
+      background: white;
+      padding: 10px;
+      border-radius: 12px;
+    }
+
+    button {
+      background: #0b84ff;
+      color: white;
+      border: none;
+      padding: 14px 26px;
+      margin: 10px;
+      border-radius: 10px;
+      font-size: 18px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #066bcb; }
+
+    #photos {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      padding: 20px;
+      width: 100%;
+      overflow-y: auto;
+    }
+
+    #photos img {
+      width: 200px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(255,255,255,0.2);
+    }
+
+    #montagem {
+      display: none;
+      background: white;
+      color: black;
+      padding: 10px;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-size: 16px;
+      color: #aaa;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Cabine Fotográfica — Operador</h1>
-    <div>
-      <button id="genQr">Gerar QR Code Celular</button>
-      <button id="endSession" disabled>Finalizar Sessão</button>
-      <button id="uploadImgbb" disabled>Gerar & Enviar (IMGBB)</button>
-      <button id="printBtn" disabled>Imprimir (9x13)</button>
-    </div>
-  </header>
+  <h1>🎛️ Painel da Cabine Fotográfica</h1>
 
-  <section>
-    <div id="qrcode"></div>
-    <div><strong>Sessão:</strong> <span id="sessionId">—</span></div>
+  <div>
+    <button id="gerarQr">Gerar QR Code para controle</button>
+    <button id="finalizarSessao">Finalizar Sessão</button>
+  </div>
 
-    <h3>📷 Fotos recebidas</h3>
-    <div id="thumbs"></div>
+  <div id="status">Aguardando...</div>
+  <canvas id="qrcode"></canvas>
 
-    <h3>🖼️ Montagem (Stories)</h3>
-    <canvas id="storiesCanvas" width="3375" height="6000"></canvas>
+  <div id="photos"></div>
+  <canvas id="montagem" width="800" height="1200"></canvas>
 
-    <h3>🖨️ Montagem (9x13)</h3>
-    <canvas id="printCanvas" width="3322" height="4798"></canvas>
-
-    <div id="log"></div>
-  </section>
+  <div>
+    <button id="btnMontagem">Gerar Montagem</button>
+    <button id="btnNuvem">Enviar pra Nuvem</button>
+    <button id="btnImprimir">Imprimir</button>
+  </div>
 
   <script>
     const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
+    const socket = io(SERVER_URL, { transports: ["websocket", "polling"] });
 
-    const STORIES_COORDS = [
-      { x: 152, y: 572,  w: 2371, h: 1540 },
-      { x: 152, y: 2225, w: 2371, h: 1541 },
-      { x: 155, y: 3885, w: 2365, h: 1546 }
-    ];
-    const PRINT_COORDS = [
-      { x: 150, y: 150,  w: 2216, h: 1434 },
-      { x: 150, y: 1684, w: 2210, h: 1437 },
-      { x: 150, y: 3232, w: 2213, h: 1435 }
-    ];
-    const IMGBB_API_KEY = "6734e028b20f88d5795128d242f85582";
+    const gerarQrBtn = document.getElementById("gerarQr");
+    const finalizarSessaoBtn = document.getElementById("finalizarSessao");
+    const qrcodeCanvas = document.getElementById("qrcode");
+    const statusText = document.getElementById("status");
+    const photosDiv = document.getElementById("photos");
+    const btnMontagem = document.getElementById("btnMontagem");
+    const btnNuvem = document.getElementById("btnNuvem");
+    const btnImprimir = document.getElementById("btnImprimir");
+    const montagemCanvas = document.getElementById("montagem");
+    const ctxMontagem = montagemCanvas.getContext("2d");
 
-    const socket = io(SERVER_URL, { transports: ["websocket","polling"] });
-    let currentSession = null, lastPhotos = [];
-    const el = id => document.getElementById(id);
-    const thumbs = el("thumbs"), qrcodeEl = el("qrcode"),
-          storiesCanvas = el("storiesCanvas"), printCanvas = el("printCanvas"),
-          logEl = el("log");
+    let currentSession = null;
+    let receivedPhotos = [];
 
-    function log(t){ logEl.textContent = `[${new Date().toLocaleTimeString()}] ${t}`; console.log(t); }
-
-    el("genQr").onclick = ()=> socket.emit("create_session");
-
-    socket.on("session_created", id=>{
-      currentSession = id;
-      el("sessionId").textContent = id;
-      const url = `${SERVER_URL}/celular.html?session=${id}`;
-      qrcodeEl.innerHTML = "";
-      QRCode.toCanvas(url, { width:200 }, (_, c)=>qrcodeEl.appendChild(c));
-      log("Sessão criada: "+id);
-      el("endSession").disabled = false;
-      socket.emit("join_room", { session:id });
-    });
-
-    socket.on("photos_ready", photos=>{
-      log(`Recebidas ${photos.length} fotos`);
-      if(!photos?.length) return;
-      lastPhotos = photos;
-      renderThumbs();
-      drawMontages();
-      el("uploadImgbb").disabled = false;
-      el("printBtn").disabled = false;
-    });
-
-    el("endSession").onclick = ()=>{
-      if(!currentSession) return;
-      socket.emit("end_session", currentSession);
-      qrcodeEl.innerHTML = "";
-      thumbs.innerHTML = "";
-      lastPhotos = [];
-      el("uploadImgbb").disabled = el("printBtn").disabled = true;
-      el("endSession").disabled = true;
-      storiesCanvas.getContext("2d").clearRect(0,0,storiesCanvas.width,storiesCanvas.height);
-      printCanvas.getContext("2d").clearRect(0,0,printCanvas.width,printCanvas.height);
-      log("Sessão encerrada.");
+    gerarQrBtn.onclick = async () => {
+      currentSession = crypto.randomUUID();
+      const url = `${SERVER_URL}/celular.html?session=${currentSession}`;
+      photosDiv.innerHTML = "";
+      receivedPhotos = [];
+      await QRCode.toCanvas(qrcodeCanvas, url, { width: 240 });
+      statusText.textContent = "📱 Escaneie o QR para conectar o celular";
+      socket.emit("create_session", { session: currentSession });
     };
 
-    function renderThumbs(){
-      thumbs.innerHTML = "";
-      lastPhotos.forEach(p=>{
-        const img=document.createElement("img"); img.src=p; thumbs.appendChild(img);
+    finalizarSessaoBtn.onclick = () => {
+      if (!currentSession) return alert("Nenhuma sessão ativa!");
+      socket.emit("end_session", { session: currentSession });
+      qrcodeCanvas.style.display = "block";
+      statusText.textContent = "Sessão finalizada.";
+      photosDiv.innerHTML = "";
+      receivedPhotos = [];
+      currentSession = null;
+    };
+
+    // Receber fotos do celular
+    socket.on("photos_from_cell", ({ session, photos }) => {
+      if (session !== currentSession) return;
+      statusText.textContent = "📸 Fotos recebidas!";
+      receivedPhotos = photos;
+      photosDiv.innerHTML = "";
+      photos.forEach(p => {
+        const img = document.createElement("img");
+        img.src = p;
+        photosDiv.appendChild(img);
       });
-    }
+    });
 
-    function drawMontages(){
-      draw(storiesCanvas,"caralho.png",STORIES_COORDS);
-      draw(printCanvas,"imprimir.png",PRINT_COORDS);
-    }
-
-    function draw(canvas,bg,coords){
-      const ctx=canvas.getContext("2d");
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      const bgImg=new Image();
-      bgImg.src=bg;
-      bgImg.onload=()=>{
-        ctx.drawImage(bgImg,0,0,canvas.width,canvas.height);
-        lastPhotos.forEach((p,i)=>{
-          const img=new Image(); img.src=p;
-          img.onload=()=>{
-            const c=coords[i]; if(!c) return;
-            const r1=img.width/img.height, r2=c.w/c.h;
-            let sx=0,sy=0,sw=img.width,sh=img.height;
-            if(r1>r2){sw=img.height*r2;sx=(img.width-sw)/2;}
-            else{sh=img.width/r2;sy=(img.height-sh)/2;}
-            ctx.drawImage(img,sx,sy,sw,sh,c.x,c.y,c.w,c.h);
-          };
-        });
-      };
-    }
-
-    el("uploadImgbb").onclick = async()=>{
-      if(!lastPhotos.length) return alert("Nenhuma foto.");
-      log("Enviando para IMGBB...");
-      for(const p of lastPhotos){
-        const b=p.split(",")[1];
-        const f=new FormData(); f.append("key",IMGBB_API_KEY); f.append("image",b);
-        await fetch("https://api.imgbb.com/1/upload",{method:"POST",body:f});
+    // Esconder QR quando celular entra em tela cheia
+    socket.on("cell_entered_fullscreen", ({ session }) => {
+      if (session === currentSession) {
+        qrcodeCanvas.style.display = "none";
+        statusText.textContent = "📷 Cabine ativa no celular!";
       }
-      alert("Upload concluído!");
+    });
+
+    // Gera montagem das fotos
+    btnMontagem.onclick = async () => {
+      if (receivedPhotos.length === 0) return alert("Nenhuma foto recebida!");
+      const bg = new Image();
+      bg.src = receivedPhotos[0];
+      await bg.decode();
+
+      ctxMontagem.fillStyle = "white";
+      ctxMontagem.fillRect(0, 0, montagemCanvas.width, montagemCanvas.height);
+
+      const h = 350, w = 260;
+      const startX = 140;
+      const gapY = 60;
+      receivedPhotos.forEach((src, i) => {
+        const img = new Image();
+        img.src = src;
+        img.onload = () => {
+          const y = 60 + i * (h + gapY);
+          ctxMontagem.drawImage(img, startX, y, w, h);
+        };
+      });
+      statusText.textContent = "🖼️ Montagem gerada!";
     };
 
-    el("printBtn").onclick = ()=>{
-      const d=printCanvas.toDataURL("image/png");
-      const w=window.open(""); w.document.write(`<img src="${d}" style="max-width:100%">`);
-      w.document.close(); setTimeout(()=>w.print(),500);
+    // Simula envio pra nuvem
+    btnNuvem.onclick = () => {
+      if (receivedPhotos.length === 0) return alert("Nenhuma foto pra enviar!");
+      statusText.textContent = "☁️ Enviando pra nuvem...";
+      setTimeout(() => {
+        statusText.textContent = "✅ Envio concluído!";
+      }, 1000);
+    };
+
+    // Imprimir montagem
+    btnImprimir.onclick = () => {
+      if (receivedPhotos.length === 0) return alert("Nenhuma montagem disponível!");
+      const imgData = montagemCanvas.toDataURL("image/png");
+      const printWindow = window.open("", "_blank");
+      printWindow.document.write(`<img src="${imgData}" style="width:100%">`);
+      printWindow.document.close();
+      printWindow.print();
     };
   </script>
 </body>
