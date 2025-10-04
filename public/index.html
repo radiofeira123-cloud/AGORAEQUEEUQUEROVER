@@ -1,4 +1,3 @@
-<!-- public/index.html -->
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -9,13 +8,13 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
   <style>
     body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; background:#111; color:#eee; margin:0; padding:20px; }
-    header{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    button{ padding:10px 14px; border-radius:8px; border:0; background:#0b84ff; color:white; cursor:pointer; margin-right:8px; }
-    .controls{ margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    header{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    button{ padding:10px 14px; border-radius:8px; border:0; background:#0b84ff; color:white; cursor:pointer; margin:4px; }
+    button:disabled{ background:#555; cursor:not-allowed; }
     #qrcode{ margin:12px 0; }
     #thumbs img{ width:160px; border-radius:6px; margin:6px; border:2px solid #222; background:#222; }
-    canvas{ display:block; margin-top:12px; border:1px solid #333; background:#000; }
-    #log{ margin-top:12px; color:#9f9; }
+    canvas{ display:block; margin-top:12px; border:1px solid #333; background:#000; max-width:100%; }
+    #log{ margin-top:12px; color:#9f9; white-space:pre-wrap; }
   </style>
 </head>
 <body>
@@ -31,21 +30,23 @@
 
   <section>
     <div id="qrcode"></div>
-    <div><strong>Session:</strong> <span id="sessionId">—</span></div>
-    <h3>Fotos recebidas (soltas)</h3>
+    <div><strong>Sessão:</strong> <span id="sessionId">—</span></div>
+
+    <h3>📷 Fotos recebidas</h3>
     <div id="thumbs"></div>
 
-    <h3>Preview montagem (Stories)</h3>
+    <h3>🖼️ Montagem (Stories)</h3>
     <canvas id="storiesCanvas" width="3375" height="6000"></canvas>
 
-    <h3>Preview impressão (9x13)</h3>
+    <h3>🖨️ Montagem (9x13)</h3>
     <canvas id="printCanvas" width="3322" height="4798"></canvas>
 
     <div id="log"></div>
   </section>
 
   <script>
-    // CONFIG
+    const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
+
     const STORIES_COORDS = [
       { x: 152, y: 572,  w: 2371, h: 1540 },
       { x: 152, y: 2225, w: 2371, h: 1541 },
@@ -56,213 +57,102 @@
       { x: 150, y: 1684, w: 2210, h: 1437 },
       { x: 150, y: 3232, w: 2213, h: 1435 }
     ];
-    // Put your IMGBB key here if you want uploads:
-    const IMGBB_API_KEY = '6734e028b20f88d5795128d242f85582'; // ex: 'abcdef123456...'
+    const IMGBB_API_KEY = "6734e028b20f88d5795128d242f85582";
 
-    // socket.io connects to same origin by default
-    const socket = io({
-      transports: ["websocket","polling"]
-    });
-
-    let currentSession = null;
-    let lastPhotos = [];
-
+    const socket = io(SERVER_URL, { transports: ["websocket","polling"] });
+    let currentSession = null, lastPhotos = [];
     const el = id => document.getElementById(id);
-    const qrcodeEl = el('qrcode');
-    const sessionEl = el('sessionId');
-    const thumbsEl = el('thumbs');
-    const storiesCanvas = el('storiesCanvas');
-    const printCanvas = el('printCanvas');
-    const endBtn = el('endSession');
-    const uploadBtn = el('uploadImgbb');
-    const printBtn = el('printBtn');
-    const logEl = el('log');
+    const thumbs = el("thumbs"), qrcodeEl = el("qrcode"),
+          storiesCanvas = el("storiesCanvas"), printCanvas = el("printCanvas"),
+          logEl = el("log");
 
-    function log(msg){ logEl.textContent = '['+new Date().toLocaleTimeString()+'] '+msg; console.log(msg); }
+    function log(t){ logEl.textContent = `[${new Date().toLocaleTimeString()}] ${t}`; console.log(t); }
 
-    // Generate new session
-    el('genQr').addEventListener('click', ()=>{
-      socket.emit('create_session');
-    });
+    el("genQr").onclick = ()=> socket.emit("create_session");
 
-    socket.on('session_created', (id)=>{
+    socket.on("session_created", id=>{
       currentSession = id;
-      sessionEl.textContent = id;
-      qrcodeEl.innerHTML = '';
-      const url = `${location.origin}/celular.html?session=${encodeURIComponent(id)}`;
-      QRCode.toCanvas(url, { width: 200 }, (err, canvas) => {
-        if (err) { console.error(err); return; }
-        qrcodeEl.appendChild(canvas);
-      });
-      endBtn.disabled = false;
-      uploadBtn.disabled = true;
-      printBtn.disabled = true;
-      thumbsEl.innerHTML = '';
+      el("sessionId").textContent = id;
+      const url = `${SERVER_URL}/celular.html?session=${id}`;
+      qrcodeEl.innerHTML = "";
+      QRCode.toCanvas(url, { width:200 }, (_, c)=>qrcodeEl.appendChild(c));
+      log("Sessão criada: "+id);
+      el("endSession").disabled = false;
+      socket.emit("join_room", { session:id });
+    });
+
+    socket.on("photos_ready", photos=>{
+      log(`Recebidas ${photos.length} fotos`);
+      if(!photos?.length) return;
+      lastPhotos = photos;
+      renderThumbs();
+      drawMontages();
+      el("uploadImgbb").disabled = false;
+      el("printBtn").disabled = false;
+    });
+
+    el("endSession").onclick = ()=>{
+      if(!currentSession) return;
+      socket.emit("end_session", currentSession);
+      qrcodeEl.innerHTML = "";
+      thumbs.innerHTML = "";
       lastPhotos = [];
-      log('Sessão criada: ' + id);
-      // join our own session (operator listens in)
-      socket.emit('join_room', { session: id });
-    });
+      el("uploadImgbb").disabled = el("printBtn").disabled = true;
+      el("endSession").disabled = true;
+      storiesCanvas.getContext("2d").clearRect(0,0,storiesCanvas.width,storiesCanvas.height);
+      printCanvas.getContext("2d").clearRect(0,0,printCanvas.width,printCanvas.height);
+      log("Sessão encerrada.");
+    };
 
-    // Receive photos from server
-    socket.on('photos_ready', (photos) => {
-      log('Fotos recebidas: ' + (photos?.length || 0));
-      if (!photos || !photos.length) return;
-      lastPhotos = photos.slice(0,3);
-      renderThumbs(lastPhotos);
-      drawStories(lastPhotos);
-      drawPrint(lastPhotos);
-      uploadBtn.disabled = false;
-      printBtn.disabled = false;
-    });
-
-    socket.on('session_ended', ()=> {
-      log('Sessão finalizada pelo operador');
-    });
-
-    // Finalizar sessão (limpa fotos e manda comando)
-    endBtn.addEventListener('click', ()=>{
-      if (!currentSession) return;
-      socket.emit('end_session', currentSession);
-      sessionEl.textContent = '—';
-      qrcodeEl.innerHTML = '';
-      thumbsEl.innerHTML = '';
-      lastPhotos = [];
-      uploadBtn.disabled = true;
-      printBtn.disabled = true;
-      endBtn.disabled = true;
-      storiesCanvas.getContext('2d').clearRect(0,0,storiesCanvas.width, storiesCanvas.height);
-      printCanvas.getContext('2d').clearRect(0,0,printCanvas.width, printCanvas.height);
-      log('Sessão finalizada localmente');
-      currentSession = null;
-    });
-
-    function renderThumbs(photos){
-      thumbsEl.innerHTML = '';
-      photos.forEach((p, idx) => {
-        const img = document.createElement('img');
-        img.src = p;
-        img.alt = 'photo'+(idx+1);
-        thumbsEl.appendChild(img);
+    function renderThumbs(){
+      thumbs.innerHTML = "";
+      lastPhotos.forEach(p=>{
+        const img=document.createElement("img"); img.src=p; thumbs.appendChild(img);
       });
     }
 
-    // draw stories montage (caralho.png must be in public/)
-    function drawStories(photos){
-      const ctx = storiesCanvas.getContext('2d');
-      ctx.clearRect(0,0,storiesCanvas.width, storiesCanvas.height);
-      const bg = new Image();
-      bg.src = 'caralho.png';
-      bg.onload = ()=>{
-        ctx.drawImage(bg, 0, 0, storiesCanvas.width, storiesCanvas.height);
-        photos.forEach((p, i)=>{
-          const img = new Image();
-          img.src = p;
-          img.onload = ()=>{
-            const c = STORIES_COORDS[i];
-            if (!c) return;
-            // draw image to fit the target box (cover style)
-            drawImageCover(ctx, img, c.x, c.y, c.w, c.h);
+    function drawMontages(){
+      draw(storiesCanvas,"caralho.png",STORIES_COORDS);
+      draw(printCanvas,"imprimir.png",PRINT_COORDS);
+    }
+
+    function draw(canvas,bg,coords){
+      const ctx=canvas.getContext("2d");
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      const bgImg=new Image();
+      bgImg.src=bg;
+      bgImg.onload=()=>{
+        ctx.drawImage(bgImg,0,0,canvas.width,canvas.height);
+        lastPhotos.forEach((p,i)=>{
+          const img=new Image(); img.src=p;
+          img.onload=()=>{
+            const c=coords[i]; if(!c) return;
+            const r1=img.width/img.height, r2=c.w/c.h;
+            let sx=0,sy=0,sw=img.width,sh=img.height;
+            if(r1>r2){sw=img.height*r2;sx=(img.width-sw)/2;}
+            else{sh=img.width/r2;sy=(img.height-sh)/2;}
+            ctx.drawImage(img,sx,sy,sw,sh,c.x,c.y,c.w,c.h);
           };
         });
       };
     }
 
-    // draw print montage (imprimir.png must be in public/)
-    function drawPrint(photos){
-      const ctx = printCanvas.getContext('2d');
-      ctx.clearRect(0,0,printCanvas.width, printCanvas.height);
-      const bg = new Image();
-      bg.src = 'imprimir.png';
-      bg.onload = ()=>{
-        ctx.drawImage(bg, 0, 0, printCanvas.width, printCanvas.height);
-        photos.forEach((p, i)=>{
-          const img = new Image();
-          img.src = p;
-          img.onload = ()=>{
-            const c = PRINT_COORDS[i];
-            if (!c) return;
-            drawImageCover(ctx, img, c.x, c.y, c.w, c.h);
-          };
-        });
-      };
-    }
-
-    // draw image cover (maintain aspect, fill)
-    function drawImageCover(ctx, img, x, y, w, h){
-      const imgRatio = img.width / img.height;
-      const boxRatio = w / h;
-      let sx=0, sy=0, sw=img.width, sh=img.height;
-      if (imgRatio > boxRatio) {
-        // image is wider -> crop sides
-        sh = img.height;
-        sw = img.height * boxRatio;
-        sx = (img.width - sw) / 2;
-      } else {
-        // image is taller -> crop top/bottom
-        sw = img.width;
-        sh = img.width / boxRatio;
-        sy = (img.height - sh) / 2;
+    el("uploadImgbb").onclick = async()=>{
+      if(!lastPhotos.length) return alert("Nenhuma foto.");
+      log("Enviando para IMGBB...");
+      for(const p of lastPhotos){
+        const b=p.split(",")[1];
+        const f=new FormData(); f.append("key",IMGBB_API_KEY); f.append("image",b);
+        await fetch("https://api.imgbb.com/1/upload",{method:"POST",body:f});
       }
-      ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
-    }
+      alert("Upload concluído!");
+    };
 
-    // Upload to IMGBB (individual photos + montage story)
-    async function uploadToImgbb(){
-      if (!IMGBB_API_KEY || IMGBB_API_KEY.includes('PUT_YOUR')) {
-        alert('Coloque sua IMGBB_API_KEY na variável IMGBB_API_KEY do código para habilitar upload.');
-        return;
-      }
-      if (!lastPhotos || !lastPhotos.length) { alert('Nenhuma foto para enviar'); return; }
-
-      log('Enviando fotos para IMGBB...');
-      const uploaded = [];
-      for (let i=0;i<lastPhotos.length;i++){
-        const base = lastPhotos[i].split(',')[1];
-        const form = new FormData();
-        form.append('key', IMGBB_API_KEY);
-        form.append('image', base);
-        try {
-          const res = await fetch('https://api.imgbb.com/1/upload', { method:'POST', body: form });
-          const j = await res.json();
-          uploaded.push(j.data?.url || null);
-          log('uploaded photo '+(i+1)+': ' + (j.data?.url || 'no-url'));
-        } catch(err){
-          console.error(err);
-          alert('Erro ao enviar foto '+(i+1)+': '+err.message);
-          return;
-        }
-      }
-
-      // upload montage (stories)
-      const montageBase = storiesCanvas.toDataURL('image/jpeg', 0.92).split(',')[1];
-      const form2 = new FormData();
-      form2.append('key', IMGBB_API_KEY);
-      form2.append('image', montageBase);
-      try {
-        const r2 = await fetch('https://api.imgbb.com/1/upload', { method:'POST', body: form2 });
-        const j2 = await r2.json();
-        log('Montagem enviada: ' + (j2.data?.url || 'no-url'));
-        // show link and QR for visualizador
-        const visualUrl = `${location.origin}/visualizador.html?session=${encodeURIComponent(currentSession)}`;
-        alert('Upload concluído.\nVisualizador: ' + visualUrl + '\nMontagem: ' + (j2.data?.url || ''));
-      } catch (err) {
-        alert('Erro ao enviar montagem: ' + err.message);
-      }
-    }
-
-    uploadBtn.addEventListener('click', uploadToImgbb);
-
-    // Print button -> open print window with printCanvas
-    printBtn.addEventListener('click', ()=>{
-      if (!lastPhotos.length) return alert('Nenhuma foto.');
-      const data = printCanvas.toDataURL('image/png');
-      const w = window.open('');
-      w.document.write('<img src="'+data+'" style="max-width:100%;">');
-      w.document.close();
-      w.focus();
-      setTimeout(()=> w.print(), 700);
-    });
+    el("printBtn").onclick = ()=>{
+      const d=printCanvas.toDataURL("image/png");
+      const w=window.open(""); w.document.write(`<img src="${d}" style="max-width:100%">`);
+      w.document.close(); setTimeout(()=>w.print(),500);
+    };
   </script>
 </body>
 </html>
