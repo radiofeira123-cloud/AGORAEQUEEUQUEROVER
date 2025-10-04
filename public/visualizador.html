@@ -72,16 +72,11 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     }
     
-    .download-all-btn:disabled {
-      background: #666;
-      cursor: not-allowed;
-    }
-    
     .gallery { 
       display: flex; 
       flex-direction: column;
       align-items: center;
-      gap: 20px;
+      gap: 25px;
       width: 100%;
       max-width: 500px;
     }
@@ -96,6 +91,21 @@
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255,255,255,0.2);
       width: 100%;
+    }
+    
+    .stories-container {
+      background: linear-gradient(135deg, #833AB4, #C13584, #E1306C, #FD1D1D);
+      padding: 25px;
+      border-radius: 25px;
+      margin-bottom: 30px;
+    }
+    
+    .stories-title {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      text-align: center;
+      color: white;
     }
     
     img { 
@@ -122,6 +132,34 @@
       box-shadow: 0 3px 6px rgba(0,0,0,0.2);
     }
     
+    .instagram-btn {
+      background: linear-gradient(135deg, #405DE6, #5851DB, #833AB4, #C13584, #E1306C, #FD1D1D);
+      color: white;
+      padding: 18px 25px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: bold;
+      width: 100%;
+      max-width: 300px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .instagram-btn img {
+      width: 28px;
+      height: 28px;
+      border: none;
+      box-shadow: none;
+      margin: 0;
+      border-radius: 0;
+    }
+    
     .loading {
       font-size: 20px;
       text-align: center;
@@ -137,7 +175,6 @@
       padding: 20px;
     }
     
-    /* Melhorias para mobile */
     @media (max-width: 480px) {
       body {
         padding: 10px;
@@ -152,10 +189,9 @@
         font-size: 24px;
       }
       
-      .download-all-btn {
+      .download-all-btn, .instagram-btn {
         padding: 16px 20px;
         font-size: 16px;
-        margin-bottom: 15px;
       }
       
       .photo-container {
@@ -206,27 +242,61 @@
     }
 
     let currentPhotos = [];
+    let currentStoriesMontage = null;
 
-    // Receber fotos do visualizador (data URLs)
-    socket.on("viewer_photos_ready", (photos) => {
-      console.log('📸 Fotos recebidas no visualizador:', photos);
+    // Receber dados do visualizador
+    socket.on("viewer_photos_ready", (data) => {
+      console.log('📸 Dados recebidos no visualizador:', data);
       
-      if (!Array.isArray(photos) || photos.length === 0) {
+      if (!data || !data.photos || !Array.isArray(data.photos)) {
         gallery.innerHTML = "<div class='no-photos'>📷 Nenhuma foto disponível no momento.</div>";
         return;
       }
       
-      currentPhotos = photos;
-      renderGallery(photos);
+      currentPhotos = data.photos;
+      currentStoriesMontage = data.storiesMontage;
       
-      if (photos.length > 0) {
+      renderGallery(currentPhotos, currentStoriesMontage);
+      
+      if (currentPhotos.length > 0) {
         downloadAllBtn.style.display = 'block';
       }
     });
 
-    function renderGallery(photos) {
+    function renderGallery(photos, storiesMontage) {
       gallery.innerHTML = '';
       
+      // Adicionar a moldura do stories se existir
+      if (storiesMontage) {
+        const storiesContainer = document.createElement("div");
+        storiesContainer.className = "photo-container stories-container";
+
+        const storiesTitle = document.createElement("div");
+        storiesTitle.className = "stories-title";
+        storiesTitle.innerHTML = "📱 Pronto para o Instagram";
+        storiesContainer.appendChild(storiesTitle);
+
+        const storiesImg = document.createElement("img");
+        storiesImg.src = storiesMontage;
+        storiesImg.alt = "Pronto para o Instagram";
+        storiesImg.loading = "lazy";
+
+        const instagramBtn = document.createElement("button");
+        instagramBtn.className = "instagram-btn";
+        instagramBtn.innerHTML = `
+          <img src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png" alt="Instagram">
+          Baixar Pronto pro Instagram
+        `;
+        instagramBtn.onclick = function() {
+          downloadImage(storiesMontage, `pronto-instagram-${viewerId}.jpg`);
+        };
+
+        storiesContainer.appendChild(storiesImg);
+        storiesContainer.appendChild(instagramBtn);
+        gallery.appendChild(storiesContainer);
+      }
+      
+      // Adicionar as fotos individuais
       photos.forEach((photoData, index) => {
         const container = document.createElement("div");
         container.className = "photo-container";
