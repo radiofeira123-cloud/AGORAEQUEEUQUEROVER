@@ -7,29 +7,30 @@
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
   <style>
     *{box-sizing:border-box}
-    html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:#000;color:#fff}
+    html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:linear-gradient(135deg,#001e3c,#0b84ff);color:#fff}
     .screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;width:100%;height:100%}
     
     /* Botão tela cheia maior */
     #enterFsBtn{padding:20px 30px;border-radius:15px;border:none;background:#ffd600;color:#000;font-weight:700;cursor:pointer;font-size:28px}
     
     /* Welcome screen maior */
-    #welcome{background:linear-gradient(135deg,#001e3c,#0b84ff);padding:40px;text-align:center;border-radius:20px;width:90%;max-width:600px}
+    #welcome{background:rgba(255,255,255,0.1);padding:40px;text-align:center;border-radius:20px;width:90%;max-width:600px;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2)}
     #welcome h1{font-size:42px;margin-bottom:20px}
     #welcome p{font-size:28px;margin-bottom:30px}
     #startBtn{padding:25px 40px;border-radius:15px;border:none;background:#fff;color:#0b84ff;font-weight:700;cursor:pointer;font-size:28px;margin-top:20px}
+    .logo{max-width:200px;margin-bottom:20px}
     
-    /* Elementos de câmera */
-    #videoEl, #canvasEl{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+    /* Elementos de câmera - SEMPRE ESPELHADOS */
+    #videoEl, #canvasEl{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;display:none;transform:scaleX(-1)}
     
     /* Countdown maior */
-    #countdown{position:fixed;top:30%;left:0;right:0;text-align:center;font-size:160px;font-weight:800;text-shadow:0 0 18px #000}
+    #countdown{position:fixed;top:30%;left:0;right:0;text-align:center;font-size:160px;font-weight:800;text-shadow:0 0 18px #000;z-index:100}
     
     /* Mensagens maiores */
-    #msg{position:fixed;top:50%;left:0;right:0;text-align:center;font-size:48px;font-weight:700}
+    #msg{position:fixed;top:50%;left:0;right:0;text-align:center;font-size:48px;font-weight:700;z-index:100}
     
     /* Thank you screen maior */
-    #thank { background: linear-gradient(135deg,#001e3c,#0b84ff); padding: 40px; border-radius: 20px; width:90%;max-width:600px;text-align:center}
+    #thank { background: rgba(255,255,255,0.1); padding: 40px; border-radius: 20px; width:90%;max-width:600px;text-align:center;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2)}
     #thank h1{font-size:42px;margin-bottom:20px}
     #thank p{font-size:28px}
     
@@ -39,13 +40,14 @@
 </head>
 <body>
   <!-- ENTER FULLSCREEN - SEMPRE VISÍVEL NA PRIMEIRA VEZ -->
-  <div id="enterFs" class="screen" style="background:linear-gradient(135deg,#040404,#0d1b2a)">
+  <div id="enterFs" class="screen" style="background:linear-gradient(135deg,#001e3c,#0b84ff)">
     <button id="enterFsBtn">Entrar em Tela Cheia (operador)</button>
   </div>
 
   <!-- WELCOME SCREEN -->
   <div id="welcomeScreen" class="screen" style="display:none">
     <div id="welcome">
+      <img src="logo.png" alt="Logo" class="logo">
       <h1>📸 Bem-vindo à Cabine Fotográfica</h1>
       <p>Clique abaixo para iniciar</p>
       <button id="startBtn">Clique aqui para iniciar</button>
@@ -61,6 +63,7 @@
   <!-- THANK YOU SCREEN -->
   <div id="thankScreen" class="screen" style="display:none">
     <div id="thank">
+      <img src="logo.png" alt="Logo" class="logo">
       <h1>✨ Obrigado por utilizar a cabine!</h1>
       <p>Espere o operador encerrar a sessão.</p>
     </div>
@@ -182,10 +185,8 @@
         videoEl.srcObject = stream;
         videoEl.style.display = 'block';
         
-        // Espelhar o vídeo para funcionar como espelho (câmera frontal)
-        videoEl.style.transform = 'scaleX(-1)';
-        
-        console.log('✅ Câmera frontal iniciada com sucesso (espelhada)');
+        // Já está espelhado no CSS com transform: scaleX(-1)
+        console.log('✅ Câmera frontal iniciada com sucesso (sempre espelhada)');
       } catch (e) {
         console.error('❌ Erro câmera frontal:', e);
         
@@ -197,8 +198,7 @@
           });
           videoEl.srcObject = stream;
           videoEl.style.display = 'block';
-          videoEl.style.transform = 'scaleX(-1)';
-          console.log('✅ Câmera frontal básica iniciada (espelhada)');
+          console.log('✅ Câmera frontal básica iniciada (sempre espelhada)');
         } catch (err) {
           console.error('❌ Erro câmera básica:', err);
           alert('Erro ao acessar a câmera: ' + err.message);
@@ -245,20 +245,22 @@
         
         countdownEl.textContent = '';
         
-        // Capturar foto - corrigir orientação (desespelhar)
+        // Capturar foto - MANTER ESPELHADA (igual ao vídeo)
         canvasEl.width = videoEl.videoWidth;
         canvasEl.height = videoEl.videoHeight;
         const ctx = canvasEl.getContext('2d');
         
-        // Para câmera frontal: desenhar normal (sem espelhamento na foto final)
+        // Para manter ESPELHADO igual ao vídeo: aplicar transform no canvas
+        ctx.translate(canvasEl.width, 0);
+        ctx.scale(-1, 1);
         ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
         
         const data = canvasEl.toDataURL('image/jpeg', 0.95);
         photos.push(data);
 
-        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height}`);
+        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height} (espelhada)`);
 
-        // Mostrar preview da foto por 3s (sem espelhamento na preview também)
+        // Mostrar preview da foto por 3s (MANTIDA ESPELHADA)
         videoEl.style.display = 'none';
         canvasEl.style.display = 'block';
         msgEl.textContent = '';
@@ -273,25 +275,33 @@
       msgEl.textContent = '';
       thankScreen.style.display = 'flex';
 
-      // ENVIAR FOTOS PARA O SERVIDOR - GARANTIDO
-      if (session && socket.connected) {
-        console.log(`📤 Enviando ${photos.length} fotos para servidor, sessão: ${session}`);
+      // ENVIAR FOTOS PARA O SERVIDOR - MÚLTIPLAS TENTATIVAS
+      if (session) {
+        console.log(`📤 Tentando enviar ${photos.length} fotos para servidor, sessão: ${session}`);
         
-        // Enviar as fotos
+        // Tentativa 1
         socket.emit('photos_from_cell', { session, photos });
-        console.log('✅ Fotos enviadas para o servidor');
+        console.log('🔄 Tentativa 1 de envio realizada');
         
-        // Verificar se o PC recebeu as fotos
+        // Tentativa 2 após 1 segundo
         setTimeout(() => {
           if (socket.connected) {
-            console.log('🔄 Verificando entrega das fotos...');
-            // Podemos adicionar uma confirmação aqui se necessário
+            socket.emit('photos_from_cell', { session, photos });
+            console.log('🔄 Tentativa 2 de envio realizada');
           }
         }, 1000);
         
+        // Tentativa 3 após 2 segundos
+        setTimeout(() => {
+          if (socket.connected) {
+            socket.emit('photos_from_cell', { session, photos });
+            console.log('🔄 Tentativa 3 de envio realizada');
+          }
+        }, 2000);
+        
       } else {
-        console.error('❌ Não pode enviar: sessão=', session, 'conectado=', socket.connected);
-        alert('Erro: não foi possível enviar as fotos. Verifique a conexão.');
+        console.error('❌ Não pode enviar: sessão=', session);
+        alert('Erro: sessão não encontrada.');
       }
     }
 
