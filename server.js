@@ -6,24 +6,57 @@ const crypto = require('crypto');
 
 const app = express();
 
+// CORS AMPLIADO para todas as origens necessárias
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  const allowedOrigins = [
+    'https://agoraequeeuquerover.vercel.app',
+    'https://agoraequeeuquerover.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:10000',
+    'http://localhost:8080'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-socket-id');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
   next();
 });
 
-app.use(express.json({ limit: '25mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const server = http.createServer(app);
 
+// Socket.IO com CORS ampliado
 const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
+  cors: {
+    origin: [
+      'https://agoraequeeuquerover.vercel.app',
+      'https://agoraequeeuquerover.onrender.com',
+      'http://localhost:3000',
+      'http://localhost:10000',
+      'http://localhost:8080'
+    ],
+    methods: ['GET', 'POST'],
+    credentials: true,
+    allowedHeaders: ['*']
+  },
   transports: ['polling', 'websocket'],
   pingTimeout: 60000,
-  pingInterval: 25000
+  pingInterval: 25000,
+  allowEIO3: true
 });
 
 // Sessões principais (para celular/operador)
@@ -60,7 +93,7 @@ async function uploadToImgbb(imageData) {
 }
 
 io.on('connection', (socket) => {
-  console.log('🔌 socket connected:', socket.id);
+  console.log('🔌 socket connected:', socket.id, 'from origin:', socket.handshake.headers.origin);
 
   // Operator: create a new session (para celular)
   socket.on('create_session', () => {
@@ -119,11 +152,15 @@ io.on('connection', (socket) => {
   // Join room para sessão principal
   socket.on('join_room', (data) => {
     const session = (data && data.session) || data;
-    if (!session) return;
+    if (!session) {
+      console.warn('❌ join_room missing session');
+      return;
+    }
     socket.join(session);
     console.log(`🔗 ${socket.id} joined ${session}`);
     if (sessions[session] && sessions[session].photos && sessions[session].photos.length) {
       socket.emit('photos_ready', sessions[session].photos);
+      console.log(`📸 Sent existing photos to ${socket.id}`);
     }
   });
 
@@ -143,13 +180,35 @@ io.on('connection', (socket) => {
 
   // celular -> server: photos_from_cell
   socket.on('photos_from_cell', ({ session, photos }) => {
-    if (!session) return console.warn('missing session in photos_from_cell');
-    if (!Array.isArray(photos)) return console.warn('photos not array');
-    sessions[session] = sessions[session] || { photos: [] };
+    console.log(`📸 Received photos_from_cell for session: ${session}`, {
+      photosCount: photos ? photos.length : 0,
+      socketId: socket.id
+    });
+
+    if (!session) {
+      console.warn('❌ photos_from_cell missing session');
+      return;
+    }
+    
+    if (!Array.isArray(photos)) {
+      console.warn('❌ photos not array in photos_from_cell');
+      return;
+    }
+
+    // Initialize session if not exists
+    if (!sessions[session]) {
+      sessions[session] = { photos: [] };
+    }
+
+    // Store photos
     sessions[session].photos = photos.slice();
     sessions[session].lastUpdated = new Date().toISOString();
-    console.log(`📷 Received ${photos.length} photos for session ${session}`);
+    
+    console.log(`✅ Stored ${photos.length} photos for session ${session}`);
+    
+    // Broadcast to everyone in that room (operator)
     io.to(session).emit('photos_ready', photos);
+    console.log(`📤 Broadcasted photos to room ${session}`);
   });
 
   // celular informs it entered fullscreen
@@ -162,7 +221,12 @@ io.on('connection', (socket) => {
   // operator clicks Finalizar Sessão
   socket.on('end_session', (session) => {
     if (!session) return;
-    if (sessions[session]) sessions[session].photos = [];
+    
+    // Clear stored photos but keep session
+    if (sessions[session]) {
+      sessions[session].photos = [];
+    }
+    
     io.to(session).emit('reset_session', { session });
     console.log(`🧹 end_session for ${session} -> reset_session emitted`);
   });
@@ -170,6 +234,25 @@ io.on('connection', (socket) => {
   socket.on('disconnect', (reason) => {
     console.log('🔌 socket disconnect', socket.id, reason);
   });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    sessions: Object.keys(sessions).length,
+    viewerSessions: Object.keys(viewerSessions).length,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Get session info
+app.get('/session/:id', (req, res) => {
+  const session = sessions[req.params.id];
+  if (!session) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+  res.json(session);
 });
 
 // Limpar sessões expiradas a cada hora
@@ -192,5 +275,10 @@ setInterval(() => {
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log('🚀 Server listening on port', PORT);
-  console.log('📸 Sistema de cabine fotográfica rodando!');
+  console.log('🌐 CORS enabled for:', [
+    'https://agoraequeeuquerover.vercel.app',
+    'https://agoraequeeuquerover.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:10000'
+  ]);
 });
