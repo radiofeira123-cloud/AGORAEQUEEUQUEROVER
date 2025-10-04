@@ -20,20 +20,16 @@
     #log{color:#9f9;margin-top:12px;white-space:pre-wrap;font-family:monospace;font-size:12px}
     .download-btn{background:#28a745;margin-left:5px;}
     .viewer-info{background:#333;padding:10px;border-radius:5px;margin:10px 0}
-    .status{background:#333;padding:8px;border-radius:4px;margin:8px 0}
-    .connected{color:#4CAF50;}
-    .disconnected{color:#f44336;}
   </style>
 </head>
 <body>
   <header>
     <div>
       <h1>📸 Cabine Fotográfica — Operador</h1>
-      <div id="connectionStatus" class="status disconnected">🔴 Desconectado</div>
     </div>
     <div style="display:flex;align-items:center;">
       <button id="genQr">Gerar QR Code Celular</button>
-      <button id="genVisualizadorQr" disabled>Gerar QR Visualizador</button>
+      <button id="genVisualizadorQr" disabled>Gerar QR Visualizador + IMGBB</button>
       <button id="finalizarSessao" disabled>Finalizar Sessão</button>
       <button id="downloadAllBtn" disabled>Download Todas Fotos</button>
       <button id="printBtn" disabled>Imprimir (9x13)</button>
@@ -91,7 +87,6 @@
     const viewerInfoEl = el('viewerInfo');
     const thumbsEl = el('thumbs'), storiesCanvas = el('storiesCanvas'), printCanvas = el('printCanvas');
     const logEl = el('log');
-    const connectionStatusEl = el('connectionStatus');
 
     const genQrBtn = el('genQr'), genVisualizadorQrBtn = el('genVisualizadorQr');
     const finalizarBtn = el('finalizarSessao'), downloadAllBtn = el('downloadAllBtn'), printBtn = el('printBtn');
@@ -120,20 +115,24 @@
       generateQrCode();
     });
 
-    // Gerar QR Code do Visualizador (SEM IMGBB)
+    // Gerar QR Code do Visualizador + Upload IMGBB (fotos + moldura)
     genVisualizadorQrBtn.addEventListener('click', () => {
       if (!currentSession || lastPhotos.length === 0) {
         log('❌ Nenhuma foto disponível para gerar visualizador');
         return;
       }
       
-      log('🔄 Criando sessão do visualizador...');
+      // Obter a moldura do stories
+      const storiesMontage = storiesCanvas.toDataURL('image/jpeg', 0.92);
+      
+      log('🔄 Criando sessão do visualizador e enviando para IMGBB...');
       genVisualizadorQrBtn.disabled = true;
-      genVisualizadorQrBtn.textContent = 'Gerando...';
+      genVisualizadorQrBtn.textContent = 'Enviando...';
       
       socket.emit('create_viewer_session', { 
         session: currentSession, 
-        photos: lastPhotos 
+        photos: lastPhotos,
+        storiesMontage: storiesMontage
       });
     });
 
@@ -161,7 +160,7 @@
       viewerInfoEl.style.display = 'block';
       
       log('👀 QR Code Visualizador gerado: ' + viewerId);
-      log('✅ Visualizador criado com sucesso!');
+      log('✅ Fotos e moldura enviadas para IMGBB!');
     }
 
     // Sessão CELULAR criada
@@ -185,14 +184,14 @@
       currentViewerSession = viewerId;
       generateVisualizadorQrCode(viewerId);
       genVisualizadorQrBtn.disabled = false;
-      genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador';
+      genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
     });
 
     // Erro no visualizador
     socket.on('viewer_session_error', ({ error }) => {
       log('❌ Erro ao criar visualizador: ' + error);
       genVisualizadorQrBtn.disabled = false;
-      genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador';
+      genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
     });
 
     // Fotos recebidas do celular
