@@ -17,15 +17,19 @@
     #thumbs{display:flex;flex-wrap:wrap;gap:8px}
     #thumbs img{width:170px;height:auto;border-radius:6px;border:2px solid #222}
     canvas{max-width:100%;display:block;margin-top:12px;border:1px solid #333;background:#000}
-    #log{color:#9f9;margin-top:12px;white-space:pre-wrap}
+    #log{color:#9f9;margin-top:12px;white-space:pre-wrap;font-family:monospace;font-size:12px}
     .download-btn{background:#28a745;margin-left:5px;}
     .viewer-info{background:#333;padding:10px;border-radius:5px;margin:10px 0}
+    .status{background:#333;padding:8px;border-radius:4px;margin:8px 0}
+    .connected{color:#4CAF50;}
+    .disconnected{color:#f44336;}
   </style>
 </head>
 <body>
   <header>
     <div>
       <h1>📸 Cabine Fotográfica — Operador</h1>
+      <div id="connectionStatus" class="status disconnected">🔴 Desconectado</div>
     </div>
     <div style="display:flex;align-items:center;">
       <button id="genQr">Gerar QR Code Celular</button>
@@ -33,6 +37,7 @@
       <button id="finalizarSessao" disabled>Finalizar Sessão</button>
       <button id="downloadAllBtn" disabled>Download Todas Fotos</button>
       <button id="printBtn" disabled>Imprimir (9x13)</button>
+      <button id="debugBtn">Debug</button>
     </div>
   </header>
 
@@ -79,7 +84,16 @@
       { x: 150, y: 3232, w: 2213, h: 1435 }
     ];
 
-    const socket = io(SERVER_URL, { transports: ['polling'], reconnection: true });
+    // Configuração Socket.IO com CORS
+    const socket = io(SERVER_URL, {
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 20000,
+      forceNew: true,
+      withCredentials: true
+    });
 
     const el = id => document.getElementById(id);
     const qrcodeEl = el('qrcode'), qrcodeVisualizadorEl = el('qrcodeVisualizador');
@@ -87,22 +101,59 @@
     const viewerInfoEl = el('viewerInfo');
     const thumbsEl = el('thumbs'), storiesCanvas = el('storiesCanvas'), printCanvas = el('printCanvas');
     const logEl = el('log');
+    const connectionStatusEl = el('connectionStatus');
 
     const genQrBtn = el('genQr'), genVisualizadorQrBtn = el('genVisualizadorQr');
     const finalizarBtn = el('finalizarSessao'), downloadAllBtn = el('downloadAllBtn'), printBtn = el('printBtn');
+    const debugBtn = el('debugBtn');
 
     let currentSession = null;
     let currentViewerSession = null;
     let lastPhotos = [];
 
     function log(msg){
-      logEl.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      const timestamp = new Date().toLocaleTimeString();
+      logEl.textContent += `[${timestamp}] ${msg}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
       console.log(msg);
     }
 
+    function updateConnectionStatus(connected) {
+      if (connected) {
+        connectionStatusEl.innerHTML = '🟢 Conectado ao Servidor';
+        connectionStatusEl.className = 'status connected';
+      } else {
+        connectionStatusEl.innerHTML = '🔴 Desconectado';
+        connectionStatusEl.className = 'status disconnected';
+      }
+    }
+
+    // Eventos de conexão Socket.IO
+    socket.on('connect', () => {
+      log('✅ Conectado ao servidor: ' + SERVER_URL);
+      updateConnectionStatus(true);
+      
+      // Se já temos uma sessão, rejoinar a sala
+      if (currentSession) {
+        socket.emit('join_room', { session: currentSession });
+        log('Rejoined room: ' + currentSession);
+      }
+    });
+
+    socket.on('disconnect', (reason) => {
+      log('❌ Desconectado: ' + reason);
+      updateConnectionStatus(false);
+    });
+
+    socket.on('connect_error', (error) => {
+      log('❌ Erro de conexão: ' + error.message);
+      updateConnectionStatus(false);
+      console.error('Socket.IO error:', error);
+    });
+
     // Criar sessão CELULAR automaticamente ao carregar a página
     window.addEventListener('DOMContentLoaded', () => {
-      console.log('🔄 Criando sessão CELULAR automaticamente...');
+      log('🔄 Iniciando criação automática de sessão CELULAR...');
       socket.emit('create_session');
     });
 
@@ -192,8 +243,14 @@
 
     // Fotos recebidas do celular
     socket.on('photos_ready', (photos) => {
-      if (!Array.isArray(photos)) return;
-      lastPhotos = photos.slice(0,3);
+      log(`📸 Fotos recebidas: ${photos.length} fotos`);
+      
+      if (!Array.isArray(photos)) {
+        log('❌ Fotos não são um array');
+        return;
+      }
+      
+      lastPhotos = photos.slice(0, 3);
       renderThumbs();
       drawStories(lastPhotos);
       drawPrint(lastPhotos);
@@ -201,7 +258,7 @@
       printBtn.disabled = false;
       genVisualizadorQrBtn.disabled = false;
       
-      log(`📸 ${photos.length} fotos recebidas do celular`);
+      log('✅ Fotos renderizadas com sucesso');
     });
 
     // Finalizar sessão (apenas limpa fotos, mantém mesma sessão)
@@ -237,6 +294,21 @@
       });
       
       log('📥 Download de todas as fotos iniciado');
+    });
+
+    // Debug
+    debugBtn.addEventListener('click', () => {
+      log('🐛 Estado atual:');
+      log('- Sessão Celular: ' + currentSession);
+      log('- Sessão Visualizador: ' + currentViewerSession);
+      log('- Fotos: ' + lastPhotos.length);
+      log('- Socket conectado: ' + socket.connected);
+      
+      // Testar conexão com servidor
+      fetch(SERVER_URL + '/health')
+        .then(r => r.json())
+        .then(data => log('🩺 Health check: ' + JSON.stringify(data)))
+        .catch(e => log('❌ Health check failed: ' + e));
     });
 
     function renderThumbs(){
