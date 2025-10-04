@@ -73,14 +73,14 @@ async function uploadToImgbb(imageData) {
 }
 
 io.on('connection', (socket) => {
-  console.log('🔌 socket connected:', socket.id, 'from origin:', socket.handshake.headers.origin);
+  console.log('🔌 NOVA CONEXÃO - socket:', socket.id, 'origin:', socket.handshake.headers.origin);
 
   // Operator: create a new session (para celular)
   socket.on('create_session', () => {
     const id = crypto.randomUUID();
     sessions[id] = { photos: [] };
     socket.emit('session_created', id);
-    console.log('🆕 session created', id);
+    console.log('🆕 NOVA SESSÃO CRIADA:', id);
   });
 
   // Criar sessão do visualizador com upload para IMGBB (fotos + moldura)
@@ -148,12 +148,12 @@ io.on('connection', (socket) => {
       return;
     }
     socket.join(session);
-    console.log(`🔗 ${socket.id} joined ${session}`);
+    console.log(`🔗 ${socket.id} entrou na sala: ${session}`);
     
     // Se já existem fotos nesta sessão, enviar para o cliente
     if (sessions[session] && sessions[session].photos && sessions[session].photos.length) {
       socket.emit('photos_ready', sessions[session].photos);
-      console.log(`📸 Sent existing ${sessions[session].photos.length} photos to ${socket.id}`);
+      console.log(`📸 Enviando ${sessions[session].photos.length} fotos existentes para ${socket.id}`);
     }
   });
 
@@ -163,7 +163,7 @@ io.on('connection', (socket) => {
     if (!viewerId) return;
     
     socket.join(`viewer_${viewerId}`);
-    console.log(`👀 ${socket.id} joined viewer ${viewerId}`);
+    console.log(`👀 ${socket.id} entrou no visualizador: ${viewerId}`);
     
     // Enviar dados completos para o visualizador
     if (viewerSessions[viewerId]) {
@@ -176,48 +176,56 @@ io.on('connection', (socket) => {
     }
   });
 
-  // celular -> server: photos_from_cell - GARANTIR RECEBIMENTO
+  // celular -> server: photos_from_cell - COM LOGS DETALHADOS
   socket.on('photos_from_cell', ({ session, photos }) => {
-    console.log(`📸 RECEBENDO FOTOS DO CELULAR - session: ${session}`, {
-      photosCount: photos ? photos.length : 0,
-      socketId: socket.id,
-      origin: socket.handshake.headers.origin
-    });
+    console.log(`\n📸📸📸 RECEBENDO FOTOS DO CELULAR 📸📸📸`);
+    console.log(`Sessão: ${session}`);
+    console.log(`Quantidade de fotos: ${photos ? photos.length : 0}`);
+    console.log(`Socket ID: ${socket.id}`);
+    console.log(`Origem: ${socket.handshake.headers.origin}`);
+    console.log(`Clientes na sala ${session}:`, io.sockets.adapter.rooms.get(session)?.size || 0);
 
     if (!session) {
-      console.warn('❌ photos_from_cell missing session');
+      console.warn('❌ ERRO: photos_from_cell missing session');
       return;
     }
     
     if (!Array.isArray(photos)) {
-      console.warn('❌ photos not array in photos_from_cell');
+      console.warn('❌ ERRO: photos not array in photos_from_cell');
       return;
     }
 
     // Initialize session if not exists
     if (!sessions[session]) {
       sessions[session] = { photos: [] };
+      console.log(`🆕 Sessão ${session} criada no servidor`);
     }
 
     // Store photos
     sessions[session].photos = photos.slice();
     sessions[session].lastUpdated = new Date().toISOString();
     
-    console.log(`✅ ARMAZENADAS ${photos.length} fotos para sessão ${session}`);
+    console.log(`✅ ${photos.length} fotos armazenadas para sessão ${session}`);
     
-    // ENVIAR PARA TODOS NA SALA (OPERADOR) - GARANTIDO
-    const roomClients = io.sockets.adapter.rooms.get(session);
-    console.log(`📤 Enviando fotos para sala ${session} - clientes conectados:`, roomClients ? roomClients.size : 0);
+    // ENVIAR PARA TODOS NA SALA (OPERADOR)
+    const room = io.sockets.adapter.rooms.get(session);
+    const clientCount = room ? room.size : 0;
     
-    io.to(session).emit('photos_ready', photos);
-    console.log(`✅ FOTOS ENVIADAS PARA O OPERADOR - ${photos.length} fotos`);
+    console.log(`📤 Enviando fotos para ${clientCount} clientes na sala ${session}`);
+    
+    if (clientCount > 0) {
+      io.to(session).emit('photos_ready', photos);
+      console.log(`✅ FOTOS ENVIADAS PARA O OPERADOR - ${photos.length} fotos`);
+    } else {
+      console.log(`❌ NENHUM CLIENTE NA SALA ${session} PARA RECEBER AS FOTOS`);
+    }
   });
 
   // celular informs it entered fullscreen
   socket.on('cell_entered_fullscreen', ({ session }) => {
     if (!session) return;
     io.to(session).emit('cell_entered_fullscreen', { session });
-    console.log(`📵 cell entered fullscreen for ${session}`);
+    console.log(`📵 Celular entrou em tela cheia para sessão ${session}`);
   });
 
   // operator clicks Finalizar Sessão
@@ -230,7 +238,7 @@ io.on('connection', (socket) => {
     }
     
     io.to(session).emit('reset_session', { session });
-    console.log(`🧹 end_session for ${session} -> reset_session emitted`);
+    console.log(`🧹 Sessão finalizada: ${session}`);
   });
 
   socket.on('disconnect', (reason) => {
