@@ -3,7 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <title>Visualizador de Fotos - Suas Fotos 📸</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
     body { 
       margin: 0; 
       display: flex; 
@@ -11,127 +18,160 @@
       align-items: center; 
       background: linear-gradient(135deg, #1a1a2e, #16213e);
       color: white; 
-      padding: 20px;
+      padding: 15px;
       min-height: 100vh;
       font-family: Arial, sans-serif;
-    }
-    
-    h1 { 
-      text-align: center; 
-      margin-bottom: 10px; 
-      font-size: 2.5rem;
-      color: #fff;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      font-size: 16px;
     }
     
     .session-info { 
       background: rgba(255,255,255,0.1); 
-      padding: 15px 25px; 
-      border-radius: 15px; 
-      margin-bottom: 25px; 
+      padding: 20px; 
+      border-radius: 20px; 
+      margin-bottom: 20px; 
       text-align: center;
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255,255,255,0.2);
+      width: 100%;
+      max-width: 500px;
+    }
+    
+    .session-info h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+    
+    .session-info p {
+      font-size: 16px;
+      margin: 5px 0;
+    }
+    
+    .expiry-info {
+      background: rgba(255,193,7,0.2);
+      padding: 12px;
+      border-radius: 12px;
+      margin: 15px 0;
+      border: 1px solid rgba(255,193,7,0.3);
+      font-size: 14px;
+      text-align: center;
+    }
+    
+    .download-all-btn { 
+      padding: 18px 25px; 
+      background: linear-gradient(135deg, #007bff, #0056b3); 
+      color: white; 
+      border: none; 
+      border-radius: 12px; 
+      cursor: pointer; 
+      font-size: 18px; 
+      font-weight: bold; 
+      margin-bottom: 20px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    
+    .download-all-btn:disabled {
+      background: #666;
+      cursor: not-allowed;
     }
     
     .gallery { 
       display: flex; 
-      flex-wrap: wrap; 
-      justify-content: center; 
-      gap: 25px;
-      max-width: 1200px;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      width: 100%;
+      max-width: 500px;
     }
     
     .photo-container { 
       display: flex; 
       flex-direction: column; 
       align-items: center; 
-      margin: 10px;
       background: rgba(255,255,255,0.1);
-      padding: 15px;
-      border-radius: 15px;
+      padding: 20px;
+      border-radius: 20px;
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255,255,255,0.2);
+      width: 100%;
     }
     
     img { 
-      width: 280px; 
-      height: 280px;
-      object-fit: cover;
-      border-radius: 12px; 
+      width: 100%;
+      max-width: 300px;
+      height: auto;
+      border-radius: 15px; 
       border: 3px solid rgba(255,255,255,0.3);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-      transition: transform 0.3s ease;
-    }
-    
-    img:hover {
-      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      margin-bottom: 15px;
     }
     
     .download-btn { 
-      padding: 12px 20px; 
+      padding: 15px 20px; 
       background: linear-gradient(135deg, #28a745, #20c997); 
-      color: white; 
-      border: none; 
-      border-radius: 8px; 
-      cursor: pointer; 
-      font-size: 16px; 
-      font-weight: bold;
-      margin-top: 12px;
-      transition: all 0.3s ease;
-    }
-    
-    .download-btn:hover { 
-      background: linear-gradient(135deg, #218838, #1e9e8a);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    }
-    
-    .download-all-btn { 
-      padding: 15px 30px; 
-      background: linear-gradient(135deg, #007bff, #0056b3); 
       color: white; 
       border: none; 
       border-radius: 10px; 
       cursor: pointer; 
-      font-size: 18px; 
-      font-weight: bold; 
-      margin-bottom: 30px;
-      transition: all 0.3s ease;
-    }
-    
-    .download-all-btn:hover { 
-      background: linear-gradient(135deg, #0056b3, #004085);
-      transform: translateY(-2px);
-      box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-    }
-    
-    .expiry-info {
-      background: rgba(255,193,7,0.2);
-      padding: 10px 20px;
-      border-radius: 10px;
-      margin: 15px 0;
-      border: 1px solid rgba(255,193,7,0.3);
+      font-size: 16px; 
+      font-weight: bold;
+      width: 100%;
+      max-width: 300px;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.2);
     }
     
     .loading {
-      font-size: 1.5rem;
+      font-size: 20px;
       text-align: center;
-      margin: 50px 0;
+      margin: 40px 0;
+      color: #ccc;
     }
     
     .no-photos {
-      font-size: 1.3rem;
+      font-size: 18px;
       text-align: center;
-      margin: 50px 0;
+      margin: 40px 0;
       color: #ccc;
+      padding: 20px;
+    }
+    
+    /* Melhorias para mobile */
+    @media (max-width: 480px) {
+      body {
+        padding: 10px;
+      }
+      
+      .session-info {
+        padding: 15px;
+        margin-bottom: 15px;
+      }
+      
+      .session-info h1 {
+        font-size: 24px;
+      }
+      
+      .download-all-btn {
+        padding: 16px 20px;
+        font-size: 16px;
+        margin-bottom: 15px;
+      }
+      
+      .photo-container {
+        padding: 15px;
+      }
+      
+      img {
+        max-width: 100%;
+      }
     }
   </style>
 </head>
 <body>
   <div class="session-info">
     <h1>📸 Suas Fotos</h1>
-    <p>Sessão: <strong id="viewerIdDisplay">—</strong></p>
+    <p><strong>Sessão:</strong> <span id="viewerIdDisplay">—</span></p>
     <div class="expiry-info">
       ⏰ Estas fotos ficarão disponíveis por 7 dias
     </div>
@@ -167,7 +207,7 @@
 
     let currentPhotos = [];
 
-    // Receber fotos do visualizador (links IMGBB)
+    // Receber fotos do visualizador (data URLs)
     socket.on("viewer_photos_ready", (photos) => {
       console.log('📸 Fotos recebidas no visualizador:', photos);
       
@@ -187,25 +227,20 @@
     function renderGallery(photos) {
       gallery.innerHTML = '';
       
-      photos.forEach((photoUrl, index) => {
+      photos.forEach((photoData, index) => {
         const container = document.createElement("div");
         container.className = "photo-container";
 
         const img = document.createElement("img");
-        img.src = photoUrl;
+        img.src = photoData;
         img.alt = `Foto ${index + 1}`;
         img.loading = "lazy";
-        
-        // Adicionar tratamento de erro
-        img.onerror = function() {
-          this.src = 'https://via.placeholder.com/280x280/333333/ffffff?text=Erro+ao+carregar';
-        };
 
         const downloadBtn = document.createElement("button");
         downloadBtn.className = "download-btn";
         downloadBtn.textContent = `📥 Download Foto ${index + 1}`;
         downloadBtn.onclick = function() {
-          downloadImage(photoUrl, `foto-${index + 1}.jpg`);
+          downloadImage(photoData, `foto-${index + 1}.jpg`);
         };
 
         container.appendChild(img);
@@ -218,19 +253,20 @@
     downloadAllBtn.addEventListener('click', () => {
       if (currentPhotos.length === 0) return;
       
-      currentPhotos.forEach((photoUrl, index) => {
+      currentPhotos.forEach((photoData, index) => {
         setTimeout(() => {
-          downloadImage(photoUrl, `foto-${index + 1}.jpg`);
-        }, index * 300); // Delay para evitar bloqueio do navegador
+          downloadImage(photoData, `foto-${index + 1}.jpg`);
+        }, index * 300);
       });
+      
+      alert('📥 Download de todas as fotos iniciado!');
     });
 
     // Função para forçar download
-    function downloadImage(url, filename) {
+    function downloadImage(dataUrl, filename) {
       const link = document.createElement('a');
       link.download = filename;
-      link.href = url;
-      link.target = '_blank';
+      link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
