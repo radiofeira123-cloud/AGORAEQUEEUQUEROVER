@@ -104,7 +104,7 @@
     socket.on('connect', () => {
       console.log('✅ Celular CONECTADO ao servidor');
       
-      // Entrar na sala da sessão
+      // Entrar na sala da sessão IMEDIATAMENTE
       if (session) {
         socket.emit('join_room', { session });
         console.log('✅ Celular entrou na sala:', session);
@@ -119,14 +119,7 @@
       console.error('❌ Erro de conexão celular:', error);
     });
 
-    // Entrar na sala da sessão IMEDIATAMENTE
-    if (session) {
-      console.log('🔼 Tentando entrar na sala:', session);
-      socket.emit('join_room', { session });
-    }
-
-    // VERIFICAÇÃO SIMPLES - Sem localStorage complexo
-    // Sempre mostrar tela cheia primeiro, depois welcome
+    // VERIFICAÇÃO SIMPLES - Sempre mostrar tela cheia primeiro
     enterFs.style.display = 'flex';
     welcomeScreen.style.display = 'none';
     thankScreen.style.display = 'none';
@@ -144,18 +137,18 @@
         } else if (el.msRequestFullscreen) {
           el.msRequestFullscreen();
         }
-        console.log('🖥️ Tentando entrar em tela cheia');
+        console.log('🖥️ Entrando em tela cheia');
       } catch (e) { 
         console.warn('❌ Fullscreen falhou', e); 
       }
     }
 
-    // ENTRAR EM TELA CHEIA - BOTÃO CLARAMENTE VISÍVEL
+    // ENTRAR EM TELA CHEIA
     enterFsBtn.addEventListener('click', async () => {
       console.log('🖱️ Botão tela cheia clicado');
       enterFullscreen();
       
-      // Mostrar welcome screen após tentativa de fullscreen
+      // Mostrar welcome screen
       setTimeout(() => {
         enterFs.style.display = 'none';
         welcomeScreen.style.display = 'flex';
@@ -174,32 +167,54 @@
     async function startCamera() {
       try {
         console.log('📷 Iniciando câmera...');
-        // Usar resolução máxima da câmera
-        stream = await navigator.mediaDevices.getUserMedia({ 
+        
+        // Tentar câmera traseira primeiro (environment) para não ficar invertida
+        const constraints = {
           video: { 
-            facingMode: 'user',
+            facingMode: { ideal: 'environment' }, // Priorizar câmera traseira
             width: { ideal: 3264 },
             height: { ideal: 1836 }
           }, 
           audio: false 
-        });
+        };
+
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoEl.srcObject = stream;
         videoEl.style.display = 'block';
-        console.log('✅ Câmera iniciada com sucesso');
+        console.log('✅ Câmera traseira iniciada com sucesso');
       } catch (e) {
-        console.error('❌ Erro câmera principal:', e);
-        // Se falhar, tentar com configuração básica
+        console.error('❌ Erro câmera traseira:', e);
+        
+        // Se falhar, tentar câmera frontal com correção de espelhamento
         try {
+          console.log('🔄 Tentando câmera frontal...');
           stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'user' }, 
+            video: { 
+              facingMode: 'user', // Câmera frontal
+              width: { ideal: 3264 },
+              height: { ideal: 1836 }
+            }, 
             audio: false 
           });
           videoEl.srcObject = stream;
           videoEl.style.display = 'block';
-          console.log('✅ Câmera iniciada (modo básico)');
+          console.log('✅ Câmera frontal iniciada (será espelhada)');
         } catch (err) {
-          console.error('❌ Erro câmera básica:', err);
-          alert('Erro ao acessar a câmera: ' + err.message);
+          console.error('❌ Erro câmera frontal:', err);
+          
+          // Última tentativa: configuração básica
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ 
+              video: true, 
+              audio: false 
+            });
+            videoEl.srcObject = stream;
+            videoEl.style.display = 'block';
+            console.log('✅ Câmera básica iniciada');
+          } catch (finalErr) {
+            console.error('❌ Erro câmera básica:', finalErr);
+            alert('Erro ao acessar a câmera: ' + finalErr.message);
+          }
         }
       }
     }
@@ -243,15 +258,30 @@
         
         countdownEl.textContent = '';
         
-        // Capturar foto com resolução máxima
+        // Capturar foto - CORRIGINDO ORIENTAÇÃO
         canvasEl.width = videoEl.videoWidth;
         canvasEl.height = videoEl.videoHeight;
         const ctx = canvasEl.getContext('2d');
-        ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-        const data = canvasEl.toDataURL('image/jpeg', 0.95); // Qualidade alta
+        
+        // Verificar se é câmera frontal (precisa espelhar) ou traseira (normal)
+        const tracks = stream.getVideoTracks();
+        const settings = tracks[0].getSettings();
+        const isFrontCamera = settings.facingMode === 'user';
+        
+        if (isFrontCamera) {
+          // Câmera frontal: espelhar horizontalmente para corrigir
+          ctx.translate(canvasEl.width, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+        } else {
+          // Câmera traseira: desenhar normal
+          ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+        }
+        
+        const data = canvasEl.toDataURL('image/jpeg', 0.95);
         photos.push(data);
 
-        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height}`);
+        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height} (${isFrontCamera ? 'frontal' : 'traseira'})`);
 
         // Mostrar preview da foto por 3s
         videoEl.style.display = 'none';
@@ -268,15 +298,30 @@
       msgEl.textContent = '';
       thankScreen.style.display = 'flex';
 
-      // Enviar fotos para o servidor
-      if (session) {
+      // ENVIAR FOTOS PARA O SERVIDOR - GARANTIDO
+      if (session && socket.connected) {
         console.log(`📤 Enviando ${photos.length} fotos para servidor, sessão: ${session}`);
-        socket.emit('photos_from_cell', { session, photos });
         
-        // Debug extra
-        console.log('✅ Fotos enviadas para o servidor');
+        // Enviar com confirmação
+        socket.emit('photos_from_cell', { session, photos }, (response) => {
+          if (response && response.status === 'received') {
+            console.log('✅ Fotos confirmadas pelo servidor');
+          } else {
+            console.log('⚠️ Fotos enviadas sem confirmação');
+          }
+        });
+        
+        // Backup: tentar enviar novamente após 2 segundos
+        setTimeout(() => {
+          if (socket.connected) {
+            console.log('🔄 Backup: reenviando fotos...');
+            socket.emit('photos_from_cell', { session, photos });
+          }
+        }, 2000);
+        
       } else {
-        console.warn('❌ Nenhuma sessão - fotos não enviadas');
+        console.error('❌ Não pode enviar: sessão=', session, 'conectado=', socket.connected);
+        alert('Erro: não foi possível enviar as fotos. Verifique a conexão.');
       }
     }
 
@@ -293,19 +338,23 @@
         countdownEl.textContent = '';
         msgEl.textContent = '';
         
-        // Voltar para welcome screen (NÃO para tela cheia)
+        // Voltar para welcome screen
         welcomeScreen.style.display = 'flex';
         
         console.log('✅ Celular resetado para tela inicial');
       }
     });
 
+    // Confirmar recebimento das fotos no servidor
+    socket.on('photos_received', (data) => {
+      console.log('✅ Servidor confirmou recebimento das fotos:', data);
+    });
+
     // Forçar exibição do botão de tela cheia se algo der errado
     setTimeout(() => {
-      if (enterFs.style.display === 'none' && welcomeScreen.style.display === 'none') {
-        console.log('⚠️ Corrigindo estado da interface');
+      if (enterFs.style.display === 'none' && welcomeScreen.style.display === 'none' && thankScreen.style.display === 'none') {
+        console.log('⚠️ Corrigindo estado da interface - mostrando tela cheia');
         enterFs.style.display = 'flex';
-        welcomeScreen.style.display = 'none';
       }
     }, 2000);
   </script>
