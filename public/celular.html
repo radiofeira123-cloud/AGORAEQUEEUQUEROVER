@@ -166,12 +166,12 @@
 
     async function startCamera() {
       try {
-        console.log('📷 Iniciando câmera...');
+        console.log('📷 Iniciando câmera frontal...');
         
-        // Tentar câmera traseira primeiro (environment) para não ficar invertida
+        // SEMPRE câmera frontal (para servir de tela e câmera)
         const constraints = {
           video: { 
-            facingMode: { ideal: 'environment' }, // Priorizar câmera traseira
+            facingMode: 'user', // SEMPRE câmera frontal
             width: { ideal: 3264 },
             height: { ideal: 1836 }
           }, 
@@ -181,40 +181,27 @@
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoEl.srcObject = stream;
         videoEl.style.display = 'block';
-        console.log('✅ Câmera traseira iniciada com sucesso');
-      } catch (e) {
-        console.error('❌ Erro câmera traseira:', e);
         
-        // Se falhar, tentar câmera frontal com correção de espelhamento
+        // Espelhar o vídeo para funcionar como espelho (câmera frontal)
+        videoEl.style.transform = 'scaleX(-1)';
+        
+        console.log('✅ Câmera frontal iniciada com sucesso (espelhada)');
+      } catch (e) {
+        console.error('❌ Erro câmera frontal:', e);
+        
+        // Se falhar, tentar configuração básica
         try {
-          console.log('🔄 Tentando câmera frontal...');
           stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-              facingMode: 'user', // Câmera frontal
-              width: { ideal: 3264 },
-              height: { ideal: 1836 }
-            }, 
+            video: { facingMode: 'user' }, 
             audio: false 
           });
           videoEl.srcObject = stream;
           videoEl.style.display = 'block';
-          console.log('✅ Câmera frontal iniciada (será espelhada)');
+          videoEl.style.transform = 'scaleX(-1)';
+          console.log('✅ Câmera frontal básica iniciada (espelhada)');
         } catch (err) {
-          console.error('❌ Erro câmera frontal:', err);
-          
-          // Última tentativa: configuração básica
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({ 
-              video: true, 
-              audio: false 
-            });
-            videoEl.srcObject = stream;
-            videoEl.style.display = 'block';
-            console.log('✅ Câmera básica iniciada');
-          } catch (finalErr) {
-            console.error('❌ Erro câmera básica:', finalErr);
-            alert('Erro ao acessar a câmera: ' + finalErr.message);
-          }
+          console.error('❌ Erro câmera básica:', err);
+          alert('Erro ao acessar a câmera: ' + err.message);
         }
       }
     }
@@ -258,32 +245,20 @@
         
         countdownEl.textContent = '';
         
-        // Capturar foto - CORRIGINDO ORIENTAÇÃO
+        // Capturar foto - corrigir orientação (desespelhar)
         canvasEl.width = videoEl.videoWidth;
         canvasEl.height = videoEl.videoHeight;
         const ctx = canvasEl.getContext('2d');
         
-        // Verificar se é câmera frontal (precisa espelhar) ou traseira (normal)
-        const tracks = stream.getVideoTracks();
-        const settings = tracks[0].getSettings();
-        const isFrontCamera = settings.facingMode === 'user';
-        
-        if (isFrontCamera) {
-          // Câmera frontal: espelhar horizontalmente para corrigir
-          ctx.translate(canvasEl.width, 0);
-          ctx.scale(-1, 1);
-          ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-        } else {
-          // Câmera traseira: desenhar normal
-          ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-        }
+        // Para câmera frontal: desenhar normal (sem espelhamento na foto final)
+        ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
         
         const data = canvasEl.toDataURL('image/jpeg', 0.95);
         photos.push(data);
 
-        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height} (${isFrontCamera ? 'frontal' : 'traseira'})`);
+        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height}`);
 
-        // Mostrar preview da foto por 3s
+        // Mostrar preview da foto por 3s (sem espelhamento na preview também)
         videoEl.style.display = 'none';
         canvasEl.style.display = 'block';
         msgEl.textContent = '';
@@ -302,22 +277,17 @@
       if (session && socket.connected) {
         console.log(`📤 Enviando ${photos.length} fotos para servidor, sessão: ${session}`);
         
-        // Enviar com confirmação
-        socket.emit('photos_from_cell', { session, photos }, (response) => {
-          if (response && response.status === 'received') {
-            console.log('✅ Fotos confirmadas pelo servidor');
-          } else {
-            console.log('⚠️ Fotos enviadas sem confirmação');
-          }
-        });
+        // Enviar as fotos
+        socket.emit('photos_from_cell', { session, photos });
+        console.log('✅ Fotos enviadas para o servidor');
         
-        // Backup: tentar enviar novamente após 2 segundos
+        // Verificar se o PC recebeu as fotos
         setTimeout(() => {
           if (socket.connected) {
-            console.log('🔄 Backup: reenviando fotos...');
-            socket.emit('photos_from_cell', { session, photos });
+            console.log('🔄 Verificando entrega das fotos...');
+            // Podemos adicionar uma confirmação aqui se necessário
           }
-        }, 2000);
+        }, 1000);
         
       } else {
         console.error('❌ Não pode enviar: sessão=', session, 'conectado=', socket.connected);
@@ -343,11 +313,6 @@
         
         console.log('✅ Celular resetado para tela inicial');
       }
-    });
-
-    // Confirmar recebimento das fotos no servidor
-    socket.on('photos_received', (data) => {
-      console.log('✅ Servidor confirmou recebimento das fotos:', data);
     });
 
     // Forçar exibição do botão de tela cheia se algo der errado
