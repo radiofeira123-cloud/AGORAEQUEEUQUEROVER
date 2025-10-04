@@ -61,8 +61,36 @@ const io = new Server(server, {
 
 // Sessões principais (para celular/operador)
 const sessions = {};
-// Sessões do visualizador (com data URLs)
+// Sessões do visualizador (com data URLs e URLs IMGBB)
 const viewerSessions = {};
+
+const IMGBB_API_KEY = "6734e028b20f88d5795128d242f85582";
+
+// Função para upload no IMGBB usando fetch nativo
+async function uploadToImgbb(imageData) {
+  try {
+    const base64Data = imageData.split(',')[1];
+    
+    const formData = new URLSearchParams();
+    formData.append('key', IMGBB_API_KEY);
+    formData.append('image', base64Data);
+
+    const response = await fetch('https://api.imgbb.com/1/upload', {
+      method: 'POST',
+      body: formData
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      return data.data.url;
+    } else {
+      throw new Error('Upload failed: ' + (data.error?.message || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('❌ Erro no upload IMGBB:', error);
+    return null;
+  }
+}
 
 io.on('connection', (socket) => {
   console.log('🔌 socket connected:', socket.id, 'from origin:', socket.handshake.headers.origin);
@@ -75,8 +103,8 @@ io.on('connection', (socket) => {
     console.log('🆕 session created', id);
   });
 
-  // Criar sessão do visualizador (SEM IMGBB - apenas data URLs)
-  socket.on('create_viewer_session', async ({ session, photos }) => {
+  // Criar sessão do visualizador com upload para IMGBB (fotos + moldura)
+  socket.on('create_viewer_session', async ({ session, photos, storiesMontage }) => {
     console.log('🔄 Criando sessão do visualizador para:', session);
     
     if (!session || !photos || !Array.isArray(photos)) {
@@ -85,16 +113,49 @@ io.on('connection', (socket) => {
     }
 
     try {
-      // Criar sessão do visualizador com as data URLs diretamente
+      // Fazer upload de cada foto para IMGBB
+      const uploadedUrls = [];
+      
+      for (let i = 0; i < photos.length; i++) {
+        console.log(`📤 Enviando foto ${i+1} para IMGBB...`);
+        const imgbbUrl = await uploadToImgbb(photos[i]);
+        if (imgbbUrl) {
+          uploadedUrls.push(imgbbUrl);
+          console.log(`✅ Foto ${i+1} enviada: ${imgbbUrl}`);
+        } else {
+          console.log(`❌ Falha no upload da foto ${i+1}`);
+        }
+      }
+
+      // Fazer upload da moldura do stories para IMGBB
+      let storiesUrl = null;
+      if (storiesMontage) {
+        console.log('📤 Enviando moldura do stories para IMGBB...');
+        storiesUrl = await uploadToImgbb(storiesMontage);
+        if (storiesUrl) {
+          console.log(`✅ Moldura stories enviada: ${storiesUrl}`);
+        } else {
+          console.log('❌ Falha no upload da moldura do stories');
+        }
+      }
+
+      if (uploadedUrls.length === 0) {
+        throw new Error('Nenhuma foto foi enviada com sucesso para o IMGBB');
+      }
+
+      // Criar sessão do visualizador
       const viewerId = crypto.randomUUID();
       viewerSessions[viewerId] = {
         originalSession: session,
-        photos: photos, // Usar data URLs diretamente
+        photos: photos, // Data URLs originais para download
+        photosImgbb: uploadedUrls, // URLs IMGBB
+        storiesMontage: storiesMontage, // Data URL da moldura
+        storiesMontageImgbb: storiesUrl, // URL IMGBB da moldura
         createdAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 dias
       };
 
-      console.log(`🎯 Sessão do visualizador criada: ${viewerId} com ${photos.length} fotos`);
+      console.log(`🎯 Sessão do visualizador criada: ${viewerId} com ${uploadedUrls.length} fotos`);
       socket.emit('viewer_session_created', { viewerId });
 
     } catch (error) {
@@ -126,9 +187,14 @@ io.on('connection', (socket) => {
     socket.join(`viewer_${viewerId}`);
     console.log(`👀 ${socket.id} joined viewer ${viewerId}`);
     
-    // Enviar fotos se existirem
-    if (viewerSessions[viewerId] && viewerSessions[viewerId].photos) {
-      socket.emit('viewer_photos_ready', viewerSessions[viewerId].photos);
+    // Enviar dados completos para o visualizador
+    if (viewerSessions[viewerId]) {
+      socket.emit('viewer_photos_ready', {
+        photos: viewerSessions[viewerId].photos,
+        photosImgbb: viewerSessions[viewerId].photosImgbb,
+        storiesMontage: viewerSessions[viewerId].storiesMontage,
+        storiesMontageImgbb: viewerSessions[viewerId].storiesMontageImgbb
+      });
     }
   });
 
@@ -200,15 +266,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Get session info
-app.get('/session/:id', (req, res) => {
-  const session = sessions[req.params.id];
-  if (!session) {
-    return res.status(404).json({ error: 'Session not found' });
-  }
-  res.json(session);
-});
-
 // Limpar sessões expiradas a cada hora
 setInterval(() => {
   const now = new Date();
@@ -229,10 +286,4 @@ setInterval(() => {
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log('🚀 Server listening on port', PORT);
-  console.log('🌐 CORS enabled for:', [
-    'https://agoraequeeuquerover.vercel.app',
-    'https://agoraequeeuquerover.onrender.com',
-    'http://localhost:3000',
-    'http://localhost:10000'
-  ]);
 });
