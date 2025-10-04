@@ -97,22 +97,31 @@
     if (fsDone === '1') {
       enterFs.style.display = 'none';
       welcomeScreen.style.display = 'flex';
+      // Entrar em tela cheia automaticamente se já tiver sido feito antes
+      setTimeout(() => {
+        enterFullscreen();
+      }, 500);
     } else {
       enterFs.style.display = 'flex';
       welcomeScreen.style.display = 'none';
     }
 
-    // ENTRAR EM TELA CHEIA
-    enterFsBtn.addEventListener('click', async () => {
+    // Função para entrar em tela cheia
+    function enterFullscreen() {
       try {
         const el = document.documentElement;
-        if (el.requestFullscreen) await el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-        else if (el.mozRequestFullScreen) await el.mozRequestFullScreen();
-        else if (el.msRequestFullscreen) await el.msRequestFullscreen();
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+        else if (el.msRequestFullscreen) el.msRequestFullscreen();
       } catch (e) { 
         console.warn('fullscreen failed', e); 
       }
+    }
+
+    // ENTRAR EM TELA CHEIA
+    enterFsBtn.addEventListener('click', async () => {
+      enterFullscreen();
       
       // Marcar que já entrou em tela cheia
       localStorage.setItem('cabine_fs_done', '1');
@@ -208,10 +217,8 @@
     // Reset quando operador finaliza sessão
     socket.on('reset_session', ({ session: s }) => {
       if (!s || s === session) {
-        // Sair do fullscreen se estiver
-        try { 
-          if (document.fullscreenElement) document.exitFullscreen(); 
-        } catch(e){}
+        // NÃO sair do fullscreen - manter em tela cheia
+        // try { if (document.fullscreenElement) document.exitFullscreen(); } catch(e){}
         
         // Resetar interface
         stopCamera();
@@ -221,6 +228,11 @@
         countdownEl.textContent = '';
         msgEl.textContent = '';
         welcomeScreen.style.display = 'flex';
+        
+        // Garantir que está em tela cheia
+        setTimeout(() => {
+          enterFullscreen();
+        }, 100);
       }
     });
   </script>
