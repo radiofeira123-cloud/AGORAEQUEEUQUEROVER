@@ -4,31 +4,106 @@
   <meta charset="UTF-8">
   <title>Visualizador de Fotos</title>
   <style>
-    body { margin: 0; display: flex; flex-wrap: wrap; justify-content: center; background: black; color: white; }
-    img { max-width: 30%; margin: 10px; border-radius: 10px; border: 3px solid white; }
+    body { margin: 0; display: flex; flex-direction: column; align-items: center; background: black; color: white; padding: 20px; }
+    h1 { text-align: center; margin-bottom: 30px; font-size: 2.5rem; }
+    .gallery { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+    .photo-container { display: flex; flex-direction: column; align-items: center; margin: 10px; }
+    img { width: 300px; height: auto; border-radius: 15px; border: 3px solid white; margin-bottom: 10px; }
+    .download-btn { padding: 12px 20px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; }
+    .download-btn:hover { background: #218838; }
+    .download-all-btn { padding: 15px 25px; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; margin-bottom: 30px; }
+    .download-all-btn:hover { background: #0056b3; }
+    .session-info { background: #333; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
   </style>
 </head>
 <body>
-  <h1>Suas Fotos</h1>
-  <div id="gallery"></div>
+  <div class="session-info">
+    <h2>Suas Fotos 📸</h2>
+    <p>Sessão: <strong id="sessionDisplay">—</strong></p>
+  </div>
+
+  <button id="downloadAllBtn" class="download-all-btn" style="display:none;">📥 Download Todas as Fotos</button>
+
+  <div id="gallery" class="gallery"></div>
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
     const params = new URLSearchParams(window.location.search);
     const session = params.get("session");
     const gallery = document.getElementById("gallery");
+    const downloadAllBtn = document.getElementById("downloadAllBtn");
+    const sessionDisplay = document.getElementById("sessionDisplay");
+    
     const socket = io("https://agoraequeeuquerover.onrender.com");
+
+    // Mostrar sessão atual
+    if (session) {
+      sessionDisplay.textContent = session;
+    }
 
     socket.emit("join_room", { session });
 
-    socket.on("photos_from_cell", (data) => {
-      if (data.session === session) {
-        gallery.innerHTML = "";
-        data.photos.forEach(p => {
+    let currentPhotos = [];
+
+    socket.on("photos_ready", (photos) => {
+      if (!Array.isArray(photos)) return;
+      
+      currentPhotos = photos;
+      gallery.innerHTML = "";
+      
+      if (photos.length > 0) {
+        downloadAllBtn.style.display = 'block';
+        
+        photos.forEach((p, index) => {
+          let container = document.createElement("div");
+          container.className = "photo-container";
+
           let img = document.createElement("img");
           img.src = p;
-          gallery.appendChild(img);
+          img.alt = `Foto ${index + 1}`;
+          container.appendChild(img);
+
+          let downloadBtn = document.createElement("button");
+          downloadBtn.className = "download-btn";
+          downloadBtn.textContent = `📥 Download Foto ${index + 1}`;
+          downloadBtn.onclick = function() {
+            downloadImage(p, `foto-${index + 1}.jpg`);
+          };
+          container.appendChild(downloadBtn);
+
+          gallery.appendChild(container);
         });
+      } else {
+        gallery.innerHTML = "<p style='text-align:center; font-size:18px;'>Nenhuma foto disponível ainda.</p>";
+        downloadAllBtn.style.display = 'none';
+      }
+    });
+
+    // Download de todas as fotos
+    downloadAllBtn.addEventListener('click', () => {
+      if (currentPhotos.length === 0) return;
+      
+      currentPhotos.forEach((photo, index) => {
+        setTimeout(() => {
+          downloadImage(photo, `foto-${index + 1}.jpg`);
+        }, index * 100); // Pequeno delay para evitar bloqueio do navegador
+      });
+    });
+
+    // Função para forçar download
+    function downloadImage(dataUrl, filename) {
+      const link = document.createElement('a');
+      link.download = filename;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Também escutar o evento photos_from_cell para compatibilidade
+    socket.on("photos_from_cell", (data) => {
+      if (data.session === session) {
+        socket.emit("photos_ready", data.photos);
       }
     });
   </script>
