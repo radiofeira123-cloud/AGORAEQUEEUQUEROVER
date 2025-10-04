@@ -6,48 +6,67 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
-    body{margin:0; background:black; color:white; font-family:sans-serif; overflow:hidden;}
-    #camera, #preview{width:100vw; height:100vh; object-fit:cover; position:absolute; top:0; left:0;}
-    #ui{position:absolute; bottom:20px; width:100%; text-align:center;}
-    button{background:#0b84ff; border:0; color:white; padding:15px 25px; border-radius:10px; font-size:20px; cursor:pointer;}
-    #countdown{position:absolute; top:20px; width:100%; text-align:center; font-size:100px; font-weight:bold;}
-    #msg{position:absolute; top:40%; width:100%; text-align:center; font-size:40px; font-weight:bold;}
+    body { margin:0; background:black; color:white; font-family:sans-serif; overflow:hidden; }
+    #camera, #preview { width:100vw; height:100vh; object-fit:cover; position:absolute; top:0; left:0; }
+    #ui { position:absolute; bottom:20px; width:100%; text-align:center; z-index:2; }
+    button { background:#0b84ff; border:0; color:white; padding:15px 25px; border-radius:10px; font-size:20px; cursor:pointer; }
+    #countdown { position:absolute; top:20px; width:100%; text-align:center; font-size:100px; font-weight:bold; }
+    #msg { position:absolute; top:40%; width:100%; text-align:center; font-size:40px; font-weight:bold; }
   </style>
 </head>
 <body>
   <video id="camera" autoplay playsinline></video>
   <canvas id="preview" style="display:none;"></canvas>
-  <div id="ui"><button id="startBtn">📸 Tirar Fotos</button></div>
+
+  <div id="ui">
+    <button id="fullscreenBtn">Entrar em Tela Cheia</button>
+    <button id="startBtn" style="display:none;">📸 Tirar Fotos</button>
+  </div>
+
   <div id="countdown"></div>
   <div id="msg"></div>
   <audio id="clack" src="clack.mp3"></audio>
 
   <script>
     const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
-    const socket = io(SERVER_URL, { transports:["websocket","polling"] });
+    const socket = io(SERVER_URL, { transports: ["websocket", "polling"] });
     const params = new URLSearchParams(location.search);
     const session = params.get("session");
+
     const video = document.getElementById("camera");
     const preview = document.getElementById("preview");
     const ctx = preview.getContext("2d");
     const countdown = document.getElementById("countdown");
     const msg = document.getElementById("msg");
     const clack = document.getElementById("clack");
+    const fullscreenBtn = document.getElementById("fullscreenBtn");
+    const startBtn = document.getElementById("startBtn");
 
     let photos = [];
 
-    async function startCamera(){
-      const s = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user" }, audio:false });
-      video.srcObject = s;
+    fullscreenBtn.onclick = () => {
+      if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+      fullscreenBtn.style.display = "none";
+      startBtn.style.display = "inline-block";
+    };
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        video.srcObject = stream;
+      } catch (e) {
+        alert("Erro ao acessar câmera: " + e.message);
+      }
     }
 
-    function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-    async function takePhotos(){
+    async function takePhotos() {
       photos = [];
       msg.textContent = "";
-      for(let i=0;i<3;i++){
-        for(let c=3;c>0;c--){
+
+      for (let i = 0; i < 3; i++) {
+        for (let c = 3; c > 0; c--) {
           countdown.textContent = c;
           await sleep(1000);
         }
@@ -55,11 +74,13 @@
         msg.textContent = "Sorria 😁";
         clack.play();
         await sleep(2000);
+
         preview.width = video.videoWidth;
         preview.height = video.videoHeight;
-        ctx.drawImage(video,0,0,preview.width,preview.height);
-        const data = preview.toDataURL("image/jpeg",0.9);
+        ctx.drawImage(video, 0, 0, preview.width, preview.height);
+        const data = preview.toDataURL("image/jpeg", 0.9);
         photos.push(data);
+
         msg.textContent = "";
         video.style.display = "none";
         preview.style.display = "block";
@@ -67,11 +88,12 @@
         preview.style.display = "none";
         video.style.display = "block";
       }
+
       msg.textContent = "Obrigado!";
       socket.emit("photos_from_cell", { session, photos });
     }
 
-    document.getElementById("startBtn").onclick = takePhotos;
+    startBtn.onclick = takePhotos;
     startCamera();
   </script>
 </body>
