@@ -19,6 +19,7 @@
     canvas{max-width:100%;display:block;margin-top:12px;border:1px solid #333;background:#000}
     #log{color:#9f9;margin-top:12px;white-space:pre-wrap}
     .download-btn{background:#28a745;margin-left:5px;}
+    .viewer-info{background:#333;padding:10px;border-radius:5px;margin:10px 0}
   </style>
 </head>
 <body>
@@ -28,7 +29,7 @@
     </div>
     <div style="display:flex;align-items:center;">
       <button id="genQr">Gerar QR Code Celular</button>
-      <button id="genVisualizadorQr">Gerar QR Visualizador</button>
+      <button id="genVisualizadorQr" disabled>Gerar QR Visualizador + IMGBB</button>
       <button id="finalizarSessao" disabled>Finalizar Sessão</button>
       <button id="downloadAllBtn" disabled>Download Todas Fotos</button>
       <button id="printBtn" disabled>Imprimir (9x13)</button>
@@ -36,16 +37,20 @@
   </header>
 
   <div id="sessionInfo">
-    <div>Sessão: <strong id="sessionId">—</strong></div>
+    <div>Sessão Celular: <strong id="sessionId">—</strong></div>
     
     <div class="qrcode-section">
-      <h3>QR Code para Celular (Cabine)</h3>
+      <h3>QR Code para Celular (Cabine) - SEMPRE VISÍVEL</h3>
       <div id="qrcode" class="qrcode-container"></div>
     </div>
     
     <div class="qrcode-section">
-      <h3>QR Code para Visualizador (Cliente)</h3>
+      <h3>QR Code para Visualizador (Cliente) - GERAR MANUALMENTE</h3>
       <div id="qrcodeVisualizador" class="qrcode-container"></div>
+      <div id="viewerInfo" class="viewer-info" style="display:none;">
+        <p><strong>Sessão Visualizador:</strong> <span id="viewerSessionId">—</span></p>
+        <p><strong>Expira em:</strong> 7 dias</p>
+      </div>
     </div>
   </div>
 
@@ -78,7 +83,8 @@
 
     const el = id => document.getElementById(id);
     const qrcodeEl = el('qrcode'), qrcodeVisualizadorEl = el('qrcodeVisualizador');
-    const sessionIdEl = el('sessionId');
+    const sessionIdEl = el('sessionId'), viewerSessionIdEl = el('viewerSessionId');
+    const viewerInfoEl = el('viewerInfo');
     const thumbsEl = el('thumbs'), storiesCanvas = el('storiesCanvas'), printCanvas = el('printCanvas');
     const logEl = el('log');
 
@@ -86,6 +92,7 @@
     const finalizarBtn = el('finalizarSessao'), downloadAllBtn = el('downloadAllBtn'), printBtn = el('printBtn');
 
     let currentSession = null;
+    let currentViewerSession = null;
     let lastPhotos = [];
 
     function log(msg){
@@ -93,13 +100,13 @@
       console.log(msg);
     }
 
-    // Criar sessão automaticamente ao carregar a página
+    // Criar sessão CELULAR automaticamente ao carregar a página
     window.addEventListener('DOMContentLoaded', () => {
-      console.log('🔄 Criando sessão automaticamente...');
+      console.log('🔄 Criando sessão CELULAR automaticamente...');
       socket.emit('create_session');
     });
 
-    // Gerar QR Code do Celular
+    // Gerar QR Code do Celular (apenas para regenerar)
     genQrBtn.addEventListener('click', ()=> {
       if (!currentSession) {
         log('Aguarde, criando sessão...');
@@ -108,13 +115,21 @@
       generateQrCode();
     });
 
-    // Gerar QR Code do Visualizador
+    // Gerar QR Code do Visualizador + Upload IMGBB
     genVisualizadorQrBtn.addEventListener('click', () => {
-      if (!currentSession) {
-        log('Aguarde, criando sessão...');
+      if (!currentSession || lastPhotos.length === 0) {
+        log('❌ Nenhuma foto disponível para gerar visualizador');
         return;
       }
-      generateVisualizadorQrCode();
+      
+      log('🔄 Criando sessão do visualizador e enviando para IMGBB...');
+      genVisualizadorQrBtn.disabled = true;
+      genVisualizadorQrBtn.textContent = 'Enviando...';
+      
+      socket.emit('create_viewer_session', { 
+        session: currentSession, 
+        photos: lastPhotos 
+      });
     });
 
     function generateQrCode() {
@@ -125,38 +140,57 @@
         if (err) { console.error(err); return; }
       });
       qrcodeEl.appendChild(canvas);
-      log('QR Code Celular gerado para: ' + currentSession);
+      log('📱 QR Code Celular gerado para: ' + currentSession);
     }
 
-    function generateVisualizadorQrCode() {
+    function generateVisualizadorQrCode(viewerId) {
       qrcodeVisualizadorEl.innerHTML = '';
-      const url = `${SERVER_URL}/visualizador.html?session=${encodeURIComponent(currentSession)}`;
+      const url = `${SERVER_URL}/visualizador.html?viewerId=${encodeURIComponent(viewerId)}`;
       const canvas = document.createElement('canvas');
       QRCode.toCanvas(canvas, url, { width: 220 }, (err) => {
         if (err) { console.error(err); return; }
       });
       qrcodeVisualizadorEl.appendChild(canvas);
-      log('QR Code Visualizador gerado para: ' + currentSession);
+      
+      viewerSessionIdEl.textContent = viewerId;
+      viewerInfoEl.style.display = 'block';
+      
+      log('👀 QR Code Visualizador gerado: ' + viewerId);
+      log('✅ Fotos enviadas para IMGBB e visualizador criado!');
     }
 
+    // Sessão CELULAR criada
     socket.on('session_created', (id) => {
       currentSession = id;
       sessionIdEl.textContent = id;
       
-      // Gerar QR codes automaticamente
+      // Gerar QR code do celular automaticamente
       generateQrCode();
-      generateVisualizadorQrCode();
       
-      log('Sessão criada automaticamente: ' + id);
+      log('✅ Sessão CELULAR criada: ' + id);
       genQrBtn.disabled = false;
-      genVisualizadorQrBtn.disabled = false;
       finalizarBtn.disabled = false;
       
       // Entrar na sala
       socket.emit('join_room', { session: id });
     });
 
-    // Fotos recebidas
+    // Sessão VISUALIZADOR criada
+    socket.on('viewer_session_created', ({ viewerId }) => {
+      currentViewerSession = viewerId;
+      generateVisualizadorQrCode(viewerId);
+      genVisualizadorQrBtn.disabled = false;
+      genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
+    });
+
+    // Erro no visualizador
+    socket.on('viewer_session_error', ({ error }) => {
+      log('❌ Erro ao criar visualizador: ' + error);
+      genVisualizadorQrBtn.disabled = false;
+      genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
+    });
+
+    // Fotos recebidas do celular
     socket.on('photos_ready', (photos) => {
       if (!Array.isArray(photos)) return;
       lastPhotos = photos.slice(0,3);
@@ -165,10 +199,12 @@
       drawPrint(lastPhotos);
       downloadAllBtn.disabled = false;
       printBtn.disabled = false;
-      log('Fotos recebidas e renderizadas.');
+      genVisualizadorQrBtn.disabled = false;
+      
+      log(`📸 ${photos.length} fotos recebidas do celular`);
     });
 
-    // Finalizar sessão
+    // Finalizar sessão (apenas limpa fotos, mantém mesma sessão)
     finalizarBtn.addEventListener('click', () => {
       if (!currentSession) return alert('Nenhuma sessão ativa.');
       
@@ -179,8 +215,14 @@
       lastPhotos = [];
       downloadAllBtn.disabled = true;
       printBtn.disabled = true;
+      genVisualizadorQrBtn.disabled = true;
       
-      log('Sessão finalizada - Próxima sessão com mesma sessão: ' + currentSession);
+      // Limpar visualizador anterior
+      qrcodeVisualizadorEl.innerHTML = '';
+      viewerInfoEl.style.display = 'none';
+      currentViewerSession = null;
+      
+      log('🧹 Sessão finalizada - Próxima sessão com MESMA sessão: ' + currentSession);
     });
 
     // Download de todas as fotos
@@ -194,7 +236,7 @@
         link.click();
       });
       
-      log('Download de todas as fotos iniciado');
+      log('📥 Download de todas as fotos iniciado');
     });
 
     function renderThumbs(){
