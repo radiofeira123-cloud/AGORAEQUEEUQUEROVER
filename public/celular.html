@@ -1,146 +1,78 @@
-<!-- public/celular.html -->
 <!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Cabine — Celular</title>
+  <title>Cabine Fotográfica — Celular</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
-    html,body { height:100%; margin:0; background:#000; color:#fff; font-family:system-ui,Arial; }
-    #container { position:relative; width:100%; height:100vh; overflow:hidden; display:flex; align-items:center; justify-content:center; }
-    video, canvas { position:absolute; width:100%; height:100%; object-fit:cover; top:0; left:0; }
-    #overlay { position:absolute; top:0; left:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; pointer-events:none; font-size:72px; font-weight:700; text-shadow:2px 2px 10px #000; color:yellow; }
-    #controls { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; gap:12px; }
-    button { padding:12px 18px; font-size:18px; border-radius:8px; border:0; background:#ffcc00; color:#000; font-weight:700; }
-    #msgSmall { position:fixed; top:12px; left:12px; color:#ddd; font-size:14px; z-index:9999; }
+    body{margin:0; background:black; color:white; font-family:sans-serif; overflow:hidden;}
+    #camera, #preview{width:100vw; height:100vh; object-fit:cover; position:absolute; top:0; left:0;}
+    #ui{position:absolute; bottom:20px; width:100%; text-align:center;}
+    button{background:#0b84ff; border:0; color:white; padding:15px 25px; border-radius:10px; font-size:20px; cursor:pointer;}
+    #countdown{position:absolute; top:20px; width:100%; text-align:center; font-size:100px; font-weight:bold;}
+    #msg{position:absolute; top:40%; width:100%; text-align:center; font-size:40px; font-weight:bold;}
   </style>
 </head>
 <body>
-  <div id="msgSmall">Abra via QR Code gerado pelo operador</div>
-  <div id="container">
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="canvas" style="display:none;"></canvas>
-    <div id="overlay">Bem-vindo à cabine fotográfica</div>
-  </div>
-
-  <div id="controls">
-    <button id="fsBtn">Entrar em Tela Cheia</button>
-    <button id="startBtn" style="display:none;">Clique aqui para iniciar</button>
-  </div>
-
-  <audio id="clickAudio" src="clack.mp3" preload="auto"></audio>
+  <video id="camera" autoplay playsinline></video>
+  <canvas id="preview" style="display:none;"></canvas>
+  <div id="ui"><button id="startBtn">📸 Tirar Fotos</button></div>
+  <div id="countdown"></div>
+  <div id="msg"></div>
+  <audio id="clack" src="clack.mp3"></audio>
 
   <script>
-    // Connect to same host (server must serve this file)
-    const socket = io({
-      transports: ["websocket","polling"]
-    });
-
+    const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
+    const socket = io(SERVER_URL, { transports:["websocket","polling"] });
     const params = new URLSearchParams(location.search);
-    const session = params.get('session');
-    if (!session) {
-      alert('Nenhuma sessão informada. Escaneie o QR code gerado pelo operador.');
-    } else {
-      socket.emit('join_room', { session });
+    const session = params.get("session");
+    const video = document.getElementById("camera");
+    const preview = document.getElementById("preview");
+    const ctx = preview.getContext("2d");
+    const countdown = document.getElementById("countdown");
+    const msg = document.getElementById("msg");
+    const clack = document.getElementById("clack");
+
+    let photos = [];
+
+    async function startCamera(){
+      const s = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user" }, audio:false });
+      video.srcObject = s;
     }
 
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const overlay = document.getElementById('overlay');
-    const fsBtn = document.getElementById('fsBtn');
-    const startBtn = document.getElementById('startBtn');
-    const clickAudio = document.getElementById('clickAudio');
+    function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
-    // Fullscreen flow: must be initiated by user click
-    fsBtn.addEventListener('click', async () => {
-      try {
-        const el = document.documentElement;
-        if (el.requestFullscreen) await el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-        fsBtn.style.display = 'none';
-        startBtn.style.display = 'inline-block';
-      } catch (e) {
-        console.warn('Fullscreen failed', e);
-      }
-    });
-
-    // Start flow: show camera and run capture
-    startBtn.addEventListener('click', async () => {
-      startBtn.style.display = 'none';
-      overlay.innerText = 'Preparando câmera...';
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-        video.srcObject = stream;
-        video.style.display = 'block';
-        overlay.innerText = '';
-        await new Promise(r=>setTimeout(r, 500));
-        await runCaptureSequence();
-      } catch (err) {
-        overlay.innerText = 'Erro ao acessar a câmera';
-        console.error(err);
-      }
-    });
-
-    // Sequence: 3 photos
-    async function runCaptureSequence(){
-      const photos = [];
-      const ctx = canvas.getContext('2d');
-
-      for (let i=0;i<3;i++){
-        // 5s countdown overlay (with "SORRIA" in last 2s)
-        for (let t=5; t>0; t--){
-          if (t <= 2) {
-            overlay.innerText = 'SORRIA';
-            try { clickAudio.currentTime = 0; clickAudio.play(); } catch(e){}
-          } else {
-            overlay.innerText = t;
-          }
-          await new Promise(r=>setTimeout(r,1000));
+    async function takePhotos(){
+      photos = [];
+      msg.textContent = "";
+      for(let i=0;i<3;i++){
+        for(let c=3;c>0;c--){
+          countdown.textContent = c;
+          await sleep(1000);
         }
-
-        // capture to canvas
-        canvas.width = video.videoWidth || 1280;
-        canvas.height = video.videoHeight || 720;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-        photos.push(dataUrl);
-
-        // show frozen photo for 3s
-        video.style.display = 'none';
-        canvas.style.display = 'block';
-        overlay.innerText = '';
-        await new Promise(r=>setTimeout(r,3000));
-
-        // cleanup for next (unless last)
-        if (i < 2) {
-          canvas.style.display = 'none';
-          video.style.display = 'block';
-        }
+        countdown.textContent = "";
+        msg.textContent = "Sorria 😁";
+        clack.play();
+        await sleep(2000);
+        preview.width = video.videoWidth;
+        preview.height = video.videoHeight;
+        ctx.drawImage(video,0,0,preview.width,preview.height);
+        const data = preview.toDataURL("image/jpeg",0.9);
+        photos.push(data);
+        msg.textContent = "";
+        video.style.display = "none";
+        preview.style.display = "block";
+        await sleep(3000);
+        preview.style.display = "none";
+        video.style.display = "block";
       }
-
-      // final message and send photos
-      video.style.display = 'none';
-      canvas.style.display = 'none';
-      overlay.innerText = 'Obrigado por utilizar a cabine!';
-      // send via socket
-      socket.emit('photos_from_cell', { session, photos });
-
-      // wait for session end signal (operator)
-      socket.once('session_ended', ()=>{
-        // reset UI to allow new run
-        overlay.innerText = '';
-        canvas.style.display = 'none';
-        video.style.display = 'none';
-        startBtn.style.display = 'inline-block';
-      });
+      msg.textContent = "Obrigado!";
+      socket.emit("photos_from_cell", { session, photos });
     }
 
-    // If operator ends session explicitly (reset)
-    socket.on('session_ended', ()=>{
-      // reload to show initial screen
-      location.reload();
-    });
+    document.getElementById("startBtn").onclick = takePhotos;
+    startCamera();
   </script>
 </body>
 </html>
