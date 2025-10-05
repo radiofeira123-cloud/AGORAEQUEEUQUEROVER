@@ -18,11 +18,10 @@
     #thumbs img{width:170px;height:auto;border-radius:6px;border:2px solid #222}
     canvas{max-width:100%;display:block;margin-top:12px;border:1px solid #333;background:#000}
     #log{color:#9f9;margin-top:12px;white-space:pre-wrap;font-family:monospace;font-size:12px}
-    .download-btn{background:#28a745;margin-left:5px;}
-    .viewer-info{background:#333;padding:10px;border-radius:5px;margin:10px 0}
     .status{background:#333;padding:8px;border-radius:4px;margin:8px 0}
     .connected{color:#4CAF50;}
     .disconnected{color:#f44336;}
+    .viewer-info{background:#333;padding:10px;border-radius:5px;margin:10px 0}
   </style>
 </head>
 <body>
@@ -33,24 +32,23 @@
     </div>
     <div style="display:flex;align-items:center;">
       <button id="genQr">Gerar QR Code Celular</button>
-      <button id="genVisualizadorQr" disabled>Gerar QR Visualizador + IMGBB</button>
       <button id="finalizarSessao" disabled>Finalizar Sessão</button>
-      <button id="downloadAllBtn" disabled>Download Todas Fotos</button>
+      <button id="genVisualizadorQr" disabled>Gerar QR Visualizador + IMGBB</button>
       <button id="printBtn" disabled>Imprimir (9x13)</button>
-      <button id="debugBtn">Debug Conexão</button>
+      <button id="debugBtn">Debug</button>
     </div>
   </header>
 
   <div id="sessionInfo">
-    <div>Sessão Celular: <strong id="sessionId">—</strong></div>
+    <div>Sessão: <strong id="sessionId">—</strong></div>
     
     <div class="qrcode-section">
-      <h3>QR Code para Celular (Cabine) - SEMPRE VISÍVEL</h3>
+      <h3>QR Code para Celular (Cabine)</h3>
       <div id="qrcode" class="qrcode-container"></div>
     </div>
     
     <div class="qrcode-section">
-      <h3>QR Code para Visualizador (Cliente) - GERAR MANUALMENTE</h3>
+      <h3>QR Code para Visualizador (Cliente)</h3>
       <div id="qrcodeVisualizador" class="qrcode-container"></div>
       <div id="viewerInfo" class="viewer-info" style="display:none;">
         <p><strong>Sessão Visualizador:</strong> <span id="viewerSessionId">—</span></p>
@@ -84,7 +82,7 @@
       { x: 150, y: 3232, w: 2213, h: 1435 }
     ];
 
-    // Configuração Socket.IO robusta
+    // Configuração Socket.IO com CORS corrigido
     const socket = io(SERVER_URL, {
       transports: ['polling', 'websocket'],
       reconnection: true,
@@ -102,8 +100,8 @@
     const logEl = el('log');
     const connectionStatusEl = el('connectionStatus');
 
-    const genQrBtn = el('genQr'), genVisualizadorQrBtn = el('genVisualizadorQr');
-    const finalizarBtn = el('finalizarSessao'), downloadAllBtn = el('downloadAllBtn'), printBtn = el('printBtn');
+    const genQrBtn = el('genQr'), finalizarBtn = el('finalizarSessao');
+    const genVisualizadorQrBtn = el('genVisualizadorQr'), printBtn = el('printBtn');
     const debugBtn = el('debugBtn');
 
     let currentSession = null;
@@ -150,43 +148,23 @@
       console.error('Socket.IO error:', error);
     });
 
-    // Criar sessão CELULAR automaticamente ao carregar a página
+    // Criar sessão automaticamente ao carregar a página
     window.addEventListener('DOMContentLoaded', () => {
-      log('🔄 Iniciando criação automática de sessão CELULAR...');
+      log('🔄 Iniciando criação automática de sessão...');
       socket.emit('create_session');
     });
 
-    // Debug button
-    debugBtn.addEventListener('click', () => {
-      log('🐛 DEBUG - Estado atual:');
-      log('- Sessão: ' + currentSession);
-      log('- Socket conectado: ' + socket.connected);
-      log('- Socket ID: ' + socket.id);
-      
-      // Testar health do servidor
-      fetch(SERVER_URL + '/health')
-        .then(r => r.json())
-        .then(data => {
-          log('🩺 Health check OK: ' + JSON.stringify(data));
-        })
-        .catch(e => {
-          log('❌ Health check FALHOU: ' + e.message);
-        });
-    });
-
-    // Resto do código permanece igual...
-    // [Manter todo o resto do código do index.html anterior]
-
-    // Gerar QR Code do Celular (apenas para regenerar)
-    genQrBtn.addEventListener('click', ()=> {
+    // Gera QR Code do Celular
+    genQrBtn.addEventListener('click', () => {
       if (!currentSession) {
-        log('Aguarde, criando sessão...');
+        log('⚠️ Aguarde, criando sessão...');
+        socket.emit('create_session');
         return;
       }
       generateQrCode();
     });
 
-    // Gerar QR Code do Visualizador + Upload IMGBB (fotos + moldura)
+    // Gera QR Code do Visualizador + Upload IMGBB
     genVisualizadorQrBtn.addEventListener('click', () => {
       if (!currentSession || lastPhotos.length === 0) {
         log('❌ Nenhuma foto disponível para gerar visualizador');
@@ -212,7 +190,10 @@
       const url = `${SERVER_URL}/celular.html?session=${encodeURIComponent(currentSession)}`;
       const canvas = document.createElement('canvas');
       QRCode.toCanvas(canvas, url, { width: 220 }, (err) => {
-        if (err) { console.error(err); return; }
+        if (err) {
+          log('❌ Erro ao gerar QR Code: ' + err);
+          return;
+        }
       });
       qrcodeEl.appendChild(canvas);
       log('📱 QR Code Celular gerado para: ' + currentSession);
@@ -223,7 +204,10 @@
       const url = `${SERVER_URL}/visualizador.html?viewerId=${encodeURIComponent(viewerId)}`;
       const canvas = document.createElement('canvas');
       QRCode.toCanvas(canvas, url, { width: 220 }, (err) => {
-        if (err) { console.error(err); return; }
+        if (err) {
+          log('❌ Erro ao gerar QR Code Visualizador: ' + err);
+          return;
+        }
       });
       qrcodeVisualizadorEl.appendChild(canvas);
       
@@ -234,23 +218,23 @@
       log('✅ Fotos e moldura enviadas para IMGBB!');
     }
 
-    // Sessão CELULAR criada
+    // Sessão criada
     socket.on('session_created', (id) => {
       currentSession = id;
       sessionIdEl.textContent = id;
       
-      // Gerar QR code do celular automaticamente
       generateQrCode();
       
-      log('✅ Sessão CELULAR criada: ' + id);
+      log('✅ Sessão criada: ' + id);
       genQrBtn.disabled = false;
       finalizarBtn.disabled = false;
       
       // Entrar na sala
       socket.emit('join_room', { session: id });
+      log('Entrou na sala: ' + id);
     });
 
-    // Sessão VISUALIZADOR criada
+    // Sessão do visualizador criada
     socket.on('viewer_session_created', ({ viewerId }) => {
       currentViewerSession = viewerId;
       generateVisualizadorQrCode(viewerId);
@@ -278,14 +262,13 @@
       renderThumbs();
       drawStories(lastPhotos);
       drawPrint(lastPhotos);
-      downloadAllBtn.disabled = false;
-      printBtn.disabled = false;
       genVisualizadorQrBtn.disabled = false;
+      printBtn.disabled = false;
       
       log('✅ Fotos renderizadas com sucesso');
     });
 
-    // Finalizar sessão (limpa TUDO)
+    // Finalizar sessão
     finalizarBtn.addEventListener('click', () => {
       if (!currentSession) return alert('Nenhuma sessão ativa.');
       
@@ -294,64 +277,42 @@
       // Limpar TUDO localmente
       thumbsEl.innerHTML = '';
       lastPhotos = [];
-      downloadAllBtn.disabled = true;
-      printBtn.disabled = true;
       genVisualizadorQrBtn.disabled = true;
+      printBtn.disabled = true;
       
       // Limpar visualizador anterior
       qrcodeVisualizadorEl.innerHTML = '';
       viewerInfoEl.style.display = 'none';
       currentViewerSession = null;
       
-      // LIMPAR PREVIEWS - IMPORTANTE!
-      const storiesCtx = storiesCanvas.getContext('2d');
-      storiesCtx.clearRect(0, 0, storiesCanvas.width, storiesCanvas.height);
-      
-      const printCtx = printCanvas.getContext('2d');
-      printCtx.clearRect(0, 0, printCanvas.width, printCanvas.height);
-      
       log('🧹 Sessão finalizada - Próxima sessão com MESMA sessão: ' + currentSession);
     });
 
-    // Download de todas as fotos
-    downloadAllBtn.addEventListener('click', () => {
-      if (!lastPhotos.length) return alert('Nenhuma foto para download.');
+    // Debug
+    debugBtn.addEventListener('click', () => {
+      log('🐛 DEBUG - Estado atual:');
+      log('- Sessão: ' + currentSession);
+      log('- Socket conectado: ' + socket.connected);
+      log('- Socket ID: ' + socket.id);
       
-      lastPhotos.forEach((photo, index) => {
-        const link = document.createElement('a');
-        link.download = `foto-${currentSession}-${index + 1}.jpg`;
-        link.href = photo;
-        link.click();
-      });
-      
-      log('📥 Download de todas as fotos iniciado');
+      // Testar health do servidor
+      fetch(SERVER_URL + '/health')
+        .then(r => r.json())
+        .then(data => {
+          log('🩺 Health check OK: ' + JSON.stringify(data));
+        })
+        .catch(e => {
+          log('❌ Health check FALHOU: ' + e.message);
+        });
     });
 
     function renderThumbs(){
       thumbsEl.innerHTML = '';
       lastPhotos.forEach((p, idx) => {
-        const container = document.createElement('div');
-        container.style.position = 'relative';
-        container.style.display = 'inline-block';
-        container.style.margin = '10px';
-        
         const img = document.createElement('img');
         img.src = p;
         img.alt = 'foto-' + (idx+1);
-        
-        const downloadBtn = document.createElement('button');
-        downloadBtn.textContent = '📥 Download';
-        downloadBtn.className = 'download-btn';
-        downloadBtn.onclick = () => {
-          const link = document.createElement('a');
-          link.download = `foto-${currentSession}-${idx + 1}.jpg`;
-          link.href = p;
-          link.click();
-        };
-        
-        container.appendChild(img);
-        container.appendChild(downloadBtn);
-        thumbsEl.appendChild(container);
+        thumbsEl.appendChild(img);
       });
     }
 
@@ -384,8 +345,10 @@
             if (!c) return;
             drawImageCover(ctx, img, c.x, c.y, c.w, c.h);
           };
+          img.onerror = () => log('❌ Erro ao cargar imagem: ' + p.substring(0, 50));
         });
       };
+      bg.onerror = () => log('❌ Erro ao cargar background stories');
     }
 
     function drawPrint(photos){
@@ -401,8 +364,10 @@
             const c = PRINT_COORDS[i]; if (!c) return;
             drawImageCover(ctx, img, c.x, c.y, c.w, c.h);
           };
+          img.onerror = () => log('❌ Erro ao cargar imagem para print: ' + p.substring(0, 50));
         });
       };
+      bg.onerror = () => log('❌ Erro ao cargar background print');
     }
 
     printBtn.addEventListener('click', () => {
