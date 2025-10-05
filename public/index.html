@@ -22,6 +22,8 @@
     .connected{color:#4CAF50;}
     .disconnected{color:#f44336;}
     .viewer-info{background:#333;padding:10px;border-radius:5px;margin:10px 0}
+    .viewer-history{background:#222;padding:10px;border-radius:5px;margin:10px 0;max-height:200px;overflow-y:auto}
+    .viewer-item{margin:5px 0;padding:5px;background:#333;border-radius:3px}
   </style>
 </head>
 <body>
@@ -44,16 +46,24 @@
     <div>Sessão: <strong id="sessionId">—</strong></div>
     
     <div class="qrcode-section">
-      <h3>QR Code para Celular (Cabine)</h3>
+      <h3>QR Code para Celular (Cabine - SESSÃO FIXA)</h3>
       <div id="qrcode" class="qrcode-container"></div>
     </div>
     
     <div class="qrcode-section">
-      <h3>QR Code para Visualizador (Cliente)</h3>
+      <h3>QR Code para Visualizador (Cliente - SESSÃO ÚNICA)</h3>
       <div id="qrcodeVisualizador" class="qrcode-container"></div>
       <div id="viewerInfo" class="viewer-info" style="display:none;">
         <p><strong>Sessão Visualizador:</strong> <span id="viewerSessionId">—</span></p>
         <p><strong>Expira em:</strong> 7 dias</p>
+      </div>
+    </div>
+
+    <!-- ✅ NOVO: Histórico de visualizadores -->
+    <div class="qrcode-section">
+      <h3>Histórico de Visualizadores</h3>
+      <div id="viewerHistory" class="viewer-history">
+        <div class="viewer-item">Nenhum visualizador gerado ainda</div>
       </div>
     </div>
   </div>
@@ -128,7 +138,7 @@
     const el = id => document.getElementById(id);
     const qrcodeEl = el('qrcode'), qrcodeVisualizadorEl = el('qrcodeVisualizador');
     const sessionIdEl = el('sessionId'), viewerSessionIdEl = el('viewerSessionId');
-    const viewerInfoEl = el('viewerInfo');
+    const viewerInfoEl = el('viewerInfo'), viewerHistoryEl = el('viewerHistory');
     const thumbsEl = el('thumbs'), storiesCanvas = el('storiesCanvas'), printCanvas = el('printCanvas');
     const logEl = el('log');
     const connectionStatusEl = el('connectionStatus');
@@ -140,6 +150,7 @@
     let currentSession = null;
     let currentViewerSession = null;
     let lastPhotos = [];
+    let viewerHistory = []; // ✅ NOVO: Histórico de visualizadores
 
     function log(msg){
       const timestamp = new Date().toLocaleTimeString();
@@ -162,10 +173,19 @@
       log('✅ CONECTADO ao servidor: ' + SERVER_URL);
       updateConnectionStatus(true);
       
-      if (currentSession) {
-        socket.emit('join_room', { session: currentSession });
-        log('Rejoined room: ' + currentSession);
-      }
+      // ✅ CORREÇÃO: Conectar à sessão FIXA como operador
+      socket.emit('operator_connected');
+    });
+
+    socket.on('session_ready', ({ sessionId }) => {
+      currentSession = sessionId;
+      sessionIdEl.textContent = sessionId;
+      
+      generateQrCode();
+      
+      log('✅ Sessão FIXA conectada: ' + sessionId);
+      genQrBtn.disabled = false;
+      finalizarBtn.disabled = false;
     });
 
     socket.on('disconnect', (reason) => {
@@ -180,22 +200,16 @@
     });
 
     window.addEventListener('DOMContentLoaded', () => {
-      log('🔄 Iniciando criação automática de sessão...');
-      socket.emit('create_session');
+      log('🔄 Conectando à sessão FIXA...');
     });
 
     genQrBtn.addEventListener('click', () => {
-      if (!currentSession) {
-        log('⚠️ Aguarde, criando sessão...');
-        socket.emit('create_session');
-        return;
-      }
       generateQrCode();
     });
 
-    // ✅ CORREÇÃO COMPLETA: Botão IMGBB com otimização e debug
+    // ✅ CORREÇÃO: Botão IMGBB com otimização
     genVisualizadorQrBtn.addEventListener('click', async () => {
-      if (!currentSession || lastPhotos.length === 0) {
+      if (!lastPhotos.length === 0) {
         log('❌ Nenhuma foto disponível para gerar visualizador');
         return;
       }
@@ -219,16 +233,14 @@
         const optimizedStoriesMontage = await optimizeImageForUpload(storiesMontage, 1600, 0.8);
         log(`✅ Montagem stories otimizada: ${Math.round(optimizedStoriesMontage.length/1024)}KB`);
         
-        log('🔄 Criando sessão do visualizador e enviando para IMGBB...');
+        log('🔄 Criando NOVA sessão do visualizador...');
         log(`📤 Enviando ${optimizedPhotos.length} fotos otimizadas + montagem stories`);
-        log(`🔑 Chave API: 6734e028b20f88d5795128d242f85582`);
         
         genVisualizadorQrBtn.disabled = true;
         genVisualizadorQrBtn.textContent = 'Enviando...';
         
-        // ✅ Enviar fotos OTIMIZADAS
+        // ✅ CORREÇÃO: Enviar sem session (servidor usa sessão fixa)
         socket.emit('create_viewer_session', { 
-            session: currentSession, 
             photos: optimizedPhotos,
             storiesMontage: optimizedStoriesMontage
         });
@@ -287,9 +299,10 @@
         }
       });
       qrcodeEl.appendChild(canvas);
-      log('📱 QR Code Celular gerado para: ' + currentSession);
+      log('📱 QR Code Celular gerado para sessão FIXA: ' + currentSession);
     }
 
+    // ✅ CORREÇÃO: Gerar QR do visualizador e adicionar ao histórico
     function generateVisualizadorQrCode(viewerId) {
       qrcodeVisualizadorEl.innerHTML = '';
       const url = `${SERVER_URL}/visualizador.html?viewerId=${encodeURIComponent(viewerId)}`;
@@ -304,28 +317,45 @@
       
       viewerSessionIdEl.textContent = viewerId;
       viewerInfoEl.style.display = 'block';
+      currentViewerSession = viewerId;
       
-      log('👀 QR Code Visualizador gerado: ' + viewerId);
+      // ✅ ADICIONAR AO HISTÓRICO
+      const viewerItem = {
+        id: viewerId,
+        timestamp: new Date().toLocaleTimeString(),
+        photosCount: lastPhotos.length
+      };
+      viewerHistory.unshift(viewerItem);
+      updateViewerHistory();
+      
+      log('👀 NOVO QR Code Visualizador gerado: ' + viewerId);
       log('✅✅✅ Fotos soltas e montagem stories enviadas para IMGBB com SUCESSO!');
     }
 
-    socket.on('session_created', (id) => {
-      currentSession = id;
-      sessionIdEl.textContent = id;
+    // ✅ NOVA FUNÇÃO: Atualizar histórico de visualizadores
+    function updateViewerHistory() {
+      viewerHistoryEl.innerHTML = '';
       
-      generateQrCode();
+      if (viewerHistory.length === 0) {
+        viewerHistoryEl.innerHTML = '<div class="viewer-item">Nenhum visualizador gerado ainda</div>';
+        return;
+      }
       
-      log('✅ Sessão criada: ' + id);
-      genQrBtn.disabled = false;
-      finalizarBtn.disabled = false;
-      
-      socket.emit('join_room', { session: id });
-      log('Entrou na sala: ' + id);
-    });
+      viewerHistory.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'viewer-item';
+        div.innerHTML = `
+          <strong>${item.timestamp}</strong> - 
+          ${item.photosCount} fotos - 
+          ID: ${item.id.substring(0, 8)}...
+        `;
+        viewerHistoryEl.appendChild(div);
+      });
+    }
 
     socket.on('viewer_session_created', ({ viewerId }) => {
       currentViewerSession = viewerId;
-      log('🎉 Sessão do visualizador criada no servidor: ' + viewerId);
+      log('🎉 NOVA Sessão do visualizador criada: ' + viewerId);
       generateVisualizadorQrCode(viewerId);
       genVisualizadorQrBtn.disabled = false;
       genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
@@ -357,20 +387,21 @@
       log('✅ Fotos renderizadas com sucesso');
     });
 
+    // ✅ CORREÇÃO: Finalizar sessão apenas reseta o celular
     finalizarBtn.addEventListener('click', () => {
       if (!currentSession) return alert('Nenhuma sessão ativa.');
       
-      socket.emit('end_session', currentSession);
+      socket.emit('end_session');
       
+      // Limpar apenas a interface do operador
       thumbsEl.innerHTML = '';
       lastPhotos = [];
       genVisualizadorQrBtn.disabled = true;
       printBtn.disabled = true;
       testImgbbBtn.disabled = true;
       
-      qrcodeVisualizadorEl.innerHTML = '';
-      viewerInfoEl.style.display = 'none';
-      currentViewerSession = null;
+      // ✅ NÃO limpar o visualizador atual - cada cliente tem o seu próprio
+      // O histórico de visualizadores permanece
       
       const storiesCtx = storiesCanvas.getContext('2d');
       storiesCtx.clearRect(0, 0, storiesCanvas.width, storiesCanvas.height);
@@ -378,16 +409,17 @@
       const printCtx = printCanvas.getContext('2d');
       printCtx.clearRect(0, 0, printCanvas.width, printCanvas.height);
       
-      log('🧹 Sessão finalizada - Próxima sessão com MESMA sessão: ' + currentSession);
+      log('🧹 Sessão finalizada - Celular resetado para próximo cliente');
+      log('📱 Visualizadores anteriores continuam funcionando por 7 dias');
     });
 
     debugBtn.addEventListener('click', () => {
       log('🐛 DEBUG - Estado atual:');
-      log('- Sessão: ' + currentSession);
+      log('- Sessão FIXA: ' + currentSession);
       log('- Socket conectado: ' + socket.connected);
       log('- Socket ID: ' + socket.id);
       log('- Fotos recebidas: ' + lastPhotos.length);
-      log('- Sessão visualizador: ' + currentViewerSession);
+      log('- Visualizadores no histórico: ' + viewerHistory.length);
       
       fetch(SERVER_URL + '/health')
         .then(r => r.json())
@@ -475,7 +507,6 @@
       const data = printCanvas.toDataURL('image/png');
       const w = window.open('');
       
-      // ✅ CORREÇÃO: HTML otimizado para impressão em UMA página
       w.document.write(`
         <!DOCTYPE html>
         <html>
@@ -522,12 +553,9 @@
       `);
       w.document.close();
       
-      // Impressão automática após carregar
       w.onload = function() {
         setTimeout(() => {
           w.print();
-          // Fechar após impressão (opcional)
-          // setTimeout(() => w.close(), 1000);
         }, 500);
       };
     });
