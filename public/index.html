@@ -39,6 +39,7 @@
       <button id="printBtn" disabled>Imprimir (9x14)</button>
       <button id="debugBtn">Debug</button>
       <button id="testImgbbBtn" style="background:#28a745">Testar IMGBB</button>
+      <button id="limparVisualizadorBtn" style="background:#dc3545">Limpar Visualizador</button>
     </div>
   </header>
 
@@ -59,7 +60,7 @@
       </div>
     </div>
 
-    <!-- ✅ NOVO: Histórico de visualizadores -->
+    <!-- Histórico de visualizadores -->
     <div class="qrcode-section">
       <h3>Histórico de Visualizadores</h3>
       <div id="viewerHistory" class="viewer-history">
@@ -146,11 +147,12 @@
     const genQrBtn = el('genQr'), finalizarBtn = el('finalizarSessao');
     const genVisualizadorQrBtn = el('genVisualizadorQr'), printBtn = el('printBtn');
     const debugBtn = el('debugBtn'), testImgbbBtn = el('testImgbbBtn');
+    const limparVisualizadorBtn = el('limparVisualizadorBtn');
 
     let currentSession = null;
     let currentViewerSession = null;
     let lastPhotos = [];
-    let viewerHistory = []; // ✅ NOVO: Histórico de visualizadores
+    let viewerHistory = [];
 
     function log(msg){
       const timestamp = new Date().toLocaleTimeString();
@@ -209,7 +211,7 @@
 
     // ✅ CORREÇÃO: Botão IMGBB com otimização
     genVisualizadorQrBtn.addEventListener('click', async () => {
-      if (!lastPhotos.length === 0) {
+      if (lastPhotos.length === 0) {
         log('❌ Nenhuma foto disponível para gerar visualizador');
         return;
       }
@@ -387,7 +389,7 @@
       log('✅ Fotos renderizadas com sucesso');
     });
 
-    // ✅ CORREÇÃO: Finalizar sessão apenas reseta o celular
+    // ✅ CORREÇÃO CRÍTICA: Finalizar sessão - limpar QR do visualizador atual
     finalizarBtn.addEventListener('click', () => {
       if (!currentSession) return alert('Nenhuma sessão ativa.');
       
@@ -400,8 +402,10 @@
       printBtn.disabled = true;
       testImgbbBtn.disabled = true;
       
-      // ✅ NÃO limpar o visualizador atual - cada cliente tem o seu próprio
-      // O histórico de visualizadores permanece
+      // ✅ CORREÇÃO: LIMPAR o QR code do visualizador atual
+      qrcodeVisualizadorEl.innerHTML = '';
+      viewerInfoEl.style.display = 'none';
+      currentViewerSession = null;
       
       const storiesCtx = storiesCanvas.getContext('2d');
       storiesCtx.clearRect(0, 0, storiesCanvas.width, storiesCanvas.height);
@@ -410,7 +414,17 @@
       printCtx.clearRect(0, 0, printCanvas.width, printCanvas.height);
       
       log('🧹 Sessão finalizada - Celular resetado para próximo cliente');
-      log('📱 Visualizadores anteriores continuam funcionando por 7 dias');
+      log('📱 QR Code do visualizador atual foi limpo');
+    });
+
+    // ✅ BOTÃO PARA LIMPAR VISUALIZADOR MANUALMENTE
+    limparVisualizadorBtn.addEventListener('click', () => {
+      if (confirm('Tem certeza que deseja limpar o visualizador atual? Isso não afetará visualizadores já compartilhados.')) {
+        qrcodeVisualizadorEl.innerHTML = '';
+        viewerInfoEl.style.display = 'none';
+        currentViewerSession = null;
+        log('🧹 Visualizador limpo da interface (visualizadores compartilhados continuam funcionando)');
+      }
     });
 
     debugBtn.addEventListener('click', () => {
