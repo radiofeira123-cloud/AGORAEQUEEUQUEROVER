@@ -20,9 +20,9 @@
     #startBtn{padding:18px 25px;border-radius:12px;border:none;background:#fff;color:#0b84ff;font-weight:700;cursor:pointer;font-size:20px;margin-top:5px;box-shadow:0 4px 15px rgba(0,0,0,0.3);width:100%;max-width:300px}
     .logo{max-width:180px;margin-bottom:20px;border-radius:10px}
     
-    /* Elementos de câmera - SEM espelhamento */
-    #videoEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none} /* Sem transform: scaleX(-1) */
-    #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;z-index:10} /* Canvas normal */
+    /* Elementos de câmera - CORREÇÃO: Vídeo espelhado para visualização natural */
+    #videoEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;transform:scaleX(-1)} /* ESPELHADO para visualização */
+    #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;z-index:10} /* Normal para foto */
     
     /* Countdown */
     #countdown{position:fixed;top:30%;left:0;right:0;text-align:center;font-size:120px;font-weight:800;text-shadow:0 0 20px #000, 0 0 30px #000;z-index:100;color:#fff}
@@ -195,18 +195,19 @@
       try {
         console.log('📷 Tentando acessar câmera frontal...');
         
-        // ✅ CORREÇÃO: Configuração para câmera frontal com resolução máxima
+        // ✅ CORREÇÃO: Configuração para resolução MÁXIMA 3264x1836
         const constraints = {
           video: { 
             facingMode: { exact: "user" }, // Forçar câmera frontal
-            width: { ideal: 3264 }, // Resolução máxima
-            height: { ideal: 1836 }, // Resolução máxima
-            aspectRatio: { ideal: 16/9 }
+            width: { ideal: 3264, max: 3264 }, // RESOLUÇÃO MÁXIMA
+            height: { ideal: 1836, max: 1836 }, // RESOLUÇÃO MÁXIMA
+            aspectRatio: { ideal: 16/9 },
+            frameRate: { ideal: 30 }
           }, 
           audio: false 
         };
 
-        console.log('🔧 Solicitando permissão da câmera...');
+        console.log('🔧 Solicitando permissão da câmera com resolução máxima 3264x1836...');
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         
         console.log('✅ Permissão concedida, configurando vídeo...');
@@ -249,12 +250,13 @@
       } catch (e) {
         console.error('❌ Erro ao acessar a câmera:', e);
         
-        // TENTATIVA ALTERNATIVA: Configuração mais simples
+        // TENTATIVA ALTERNATIVA: Configuração mais simples SEM limitações
         try {
-          console.log('🔄 Tentando configuração alternativa da câmera...');
+          console.log('🔄 Tentando configuração alternativa da câmera (sem limitações)...');
           stream = await navigator.mediaDevices.getUserMedia({ 
             video: { 
               facingMode: { exact: "user" }
+              // SEM restrições de resolução - usar máximo disponível
             },
             audio: false 
           });
@@ -312,20 +314,26 @@
         
         countdownEl.textContent = '';
         
-        // Capturar foto com a resolução real da câmera
+        // Capturar foto com a resolução REAL da câmera (MÁXIMA)
         canvasEl.width = videoEl.videoWidth;
         canvasEl.height = videoEl.videoHeight;
         const ctx = canvasEl.getContext('2d');
         
-        // Desenhar a foto sem espelhamento (igual ao vídeo)
+        // ✅ CORREÇÃO CRÍTICA: Fotos NÃO INVERTIDAS - corrigir o espelhamento
+        // O vídeo está espelhado (transform: scaleX(-1)) para visualização natural
+        // Mas queremos a foto normal, então aplicamos o espelhamento no canvas
+        ctx.save();
+        ctx.translate(canvasEl.width, 0);
+        ctx.scale(-1, 1);
         ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+        ctx.restore();
         
         const data = canvasEl.toDataURL('image/jpeg', 1.0); // Qualidade máxima
         photos.push(data);
         
-        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height} (QUALIDADE MÁXIMA)`);
+        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height} (RESOLUÇÃO MÁXIMA)`);
 
-        // Show photo preview
+        // Show photo preview (NÃO INVERTIDA)
         videoEl.style.display = 'none';
         canvasEl.style.display = 'block';
         await sleep(3000);
