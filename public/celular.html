@@ -8,46 +8,46 @@
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:#000;color:#fff;overflow:hidden}
-    .screen{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px}
+    .screen{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:15px}
     
     /* Botão tela cheia */
-    #enterFsBtn{padding:20px 30px;border-radius:15px;border:none;background:#ffd600;color:#000;font-weight:700;cursor:pointer;font-size:24px;margin:20px}
+    #enterFsBtn{padding:18px 25px;border-radius:12px;border:none;background:#ffd600;color:#000;font-weight:700;cursor:pointer;font-size:20px;margin:15px;width:90%;max-width:300px}
     
     /* Welcome screen */
-    #welcome{background:rgba(255,255,255,0.15);padding:40px;text-align:center;border-radius:20px;width:90%;max-width:500px;backdrop-filter:blur(15px);border:2px solid rgba(255,255,255,0.3)}
-    #welcome h1{font-size:32px;margin-bottom:20px;text-shadow:2px 2px 4px rgba(0,0,0,0.5)}
-    #welcome p{font-size:20px;margin-bottom:30px}
-    #startBtn{padding:20px 35px;border-radius:15px;border:none;background:#fff;color:#0b84ff;font-weight:700;cursor:pointer;font-size:24px;margin-top:20px;box-shadow:0 4px 15px rgba(0,0,0,0.3)}
-    .logo{max-width:200px;margin-bottom:30px;border-radius:10px}
+    #welcome{background:rgba(255,255,255,0.15);padding:25px;text-align:center;border-radius:15px;width:95%;max-width:400px;backdrop-filter:blur(15px);border:2px solid rgba(255,255,255,0.3)}
+    #welcome h1{font-size:26px;margin-bottom:15px;text-shadow:2px 2px 4px rgba(0,0,0,0.5)}
+    #welcome p{font-size:18px;margin-bottom:20px}
+    #startBtn{padding:18px 25px;border-radius:12px;border:none;background:#fff;color:#0b84ff;font-weight:700;cursor:pointer;font-size:20px;margin-top:15px;box-shadow:0 4px 15px rgba(0,0,0,0.3);width:100%;max-width:300px}
+    .logo{max-width:180px;margin-bottom:20px;border-radius:10px}
     
     /* Elementos de câmera */
-    #videoEl, #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none}
+    #videoEl, #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;transform:scaleX(-1)}
     
     /* Countdown */
-    #countdown{position:fixed;top:30%;left:0;right:0;text-align:center;font-size:140px;font-weight:800;text-shadow:0 0 20px #000, 0 0 30px #000;z-index:100;color:#fff}
+    #countdown{position:fixed;top:30%;left:0;right:0;text-align:center;font-size:120px;font-weight:800;text-shadow:0 0 20px #000, 0 0 30px #000;z-index:100;color:#fff}
     
     /* Mensagens */
-    #msg{position:fixed;top:50%;left:0;right:0;text-align:center;font-size:36px;font-weight:700;z-index:100;color:#fff;text-shadow:0 0 10px #000}
+    #msg{position:fixed;top:50%;left:0;right:0;text-align:center;font-size:28px;font-weight:700;z-index:100;color:#fff;text-shadow:0 0 10px #000}
     
     /* Thank you screen */
-    #thank { background: rgba(255,255,255,0.15); padding: 40px; border-radius: 20px; width:90%;max-width:500px;text-align:center;backdrop-filter:blur(15px);border:2px solid rgba(255,255,255,0.3)}
-    #thank h1{font-size:32px;margin-bottom:20px;text-shadow:2px 2px 4px rgba(0,0,0,0.5)}
-    #thank p{font-size:20px}
+    #thank { background: rgba(255,255,255,0.15); padding: 25px; border-radius: 15px; width:95%;max-width:400px;text-align:center;backdrop-filter:blur(15px);border:2px solid rgba(255,255,255,0.3)}
+    #thank h1{font-size:26px;margin-bottom:15px;text-shadow:2px 2px 4px rgba(0,0,0,0.5)}
+    #thank p{font-size:18px}
     
     /* Estados de display */
     .hidden { display: none !important; }
     .visible { display: flex !important; }
     
-    #debugInfo {position:fixed;bottom:10px;left:10px;font-size:12px;color:#888;background:rgba(0,0,0,0.7);padding:5px;border-radius:5px;z-index:1000}
+    #debugInfo {position:fixed;bottom:10px;left:10px;font-size:10px;color:#888;background:rgba(0,0,0,0.7);padding:4px;border-radius:4px;z-index:1000}
   </style>
 </head>
 <body>
   <!-- ENTER FULLSCREEN - APENAS NA PRIMEIRA VEZ -->
   <div id="enterFs" class="screen visible" style="background:linear-gradient(135deg,#001e3c,#0b84ff)">
-    <div style="text-align:center;background:rgba(0,0,0,0.3);padding:30px;border-radius:20px;backdrop-filter:blur(10px)">
+    <div style="text-align:center;background:rgba(0,0,0,0.3);padding:20px;border-radius:15px;backdrop-filter:blur(10px);width:95%;max-width:400px">
       <img src="logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
-      <h1 style="font-size:28px;margin-bottom:30px">📸 Cabine Fotográfica</h1>
-      <p style="font-size:18px;margin-bottom:30px">Para melhor experiência, entre em tela cheia</p>
+      <h1 style="font-size:24px;margin-bottom:20px">📸 Cabine Fotográfica</h1>
+      <p style="font-size:16px;margin-bottom:20px">Para melhor experiência, entre em tela cheia</p>
       <button id="enterFsBtn">🎬 Entrar em Tela Cheia</button>
     </div>
   </div>
@@ -166,7 +166,6 @@
     }
 
     // ✅ CORREÇÃO: Estado inicial - SEMPRE começar na tela de entrar em tela cheia
-    // Não usar localStorage para controlar o estado
     showScreen(enterFs);
 
     enterFsBtn.addEventListener('click', async () => {
@@ -174,6 +173,8 @@
         const el = document.documentElement;
         if (el.requestFullscreen) await el.requestFullscreen();
         else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+        else if (el.mozRequestFullScreen) await el.mozRequestFullScreen();
+        else if (el.msRequestFullscreen) await el.msRequestFullscreen();
       } catch (e) { 
         console.warn('fullscreen failed', e); 
       }
@@ -189,20 +190,36 @@
 
     startBtn.addEventListener('click', async () => {
       showScreen(null); // Remove todas as telas para mostrar a câmera
-      videoEl.style.display = 'block';
       await startCamera();
       await runCaptureSequence();
     });
 
     async function startCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'user' }, 
+        console.log('📷 Tentando acessar câmera frontal...');
+        
+        // ✅ CORREÇÃO: Configuração mais robusta da câmera
+        const constraints = {
+          video: { 
+            facingMode: 'user',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }, 
           audio: false 
-        });
+        };
+
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoEl.srcObject = stream;
         videoEl.style.display = 'block';
-        console.log('📷 Câmera iniciada com sucesso');
+        
+        // ✅ CORREÇÃO: Aguardar o vídeo estar pronto
+        await new Promise((resolve) => {
+          videoEl.onloadedmetadata = () => {
+            console.log('✅ Câmera iniciada com sucesso - Dimensões:', videoEl.videoWidth, 'x', videoEl.videoHeight);
+            resolve();
+          };
+        });
+        
       } catch (e) {
         console.error('❌ Erro ao acessar a câmera:', e);
         alert('Erro ao acessar a câmera: ' + e.message);
@@ -225,12 +242,16 @@
       photos = [];
       console.log('🔄 Iniciando sequência de captura');
       
+      // ✅ CORREÇÃO: Garantir que o vídeo esteja visível durante a contagem
+      videoEl.style.display = 'block';
+      
       for (let shot = 0; shot < 3; shot++) {
         console.log(`📸 Foto ${shot + 1}/3`);
         
         for (let t = 5; t > 0; t--) {
           if (t <= 2) {
             countdownEl.textContent = 'SORRIA!';
+            countdownEl.style.color = '#ffd600';
             if (t === 2) {
               try { 
                 clack.currentTime = 0; 
@@ -241,26 +262,32 @@
             }
           } else {
             countdownEl.textContent = String(t);
+            countdownEl.style.color = '#fff';
           }
           await sleep(1000);
         }
         
         countdownEl.textContent = '';
         
-        // Capture photo
-        canvasEl.width = videoEl.videoWidth || 1280;
-        canvasEl.height = videoEl.videoHeight || 720;
+        // ✅ CORREÇÃO: Capturar foto com dimensões reais do vídeo
+        canvasEl.width = videoEl.videoWidth;
+        canvasEl.height = videoEl.videoHeight;
         const ctx = canvasEl.getContext('2d');
+        
+        // ✅ CORREÇÃO: Manter o espelhamento igual ao vídeo
+        ctx.translate(canvasEl.width, 0);
+        ctx.scale(-1, 1);
         ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+        
         const data = canvasEl.toDataURL('image/jpeg', 0.92);
         photos.push(data);
         
-        console.log(`✅ Foto ${shot + 1} capturada`);
+        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height}`);
 
         // Show photo preview
         videoEl.style.display = 'none';
         canvasEl.style.display = 'block';
-        msgEl.textContent = '';
+        msgEl.textContent = 'Foto capturada!';
         await sleep(3000);
         canvasEl.style.display = 'none';
         videoEl.style.display = 'block';
