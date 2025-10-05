@@ -42,7 +42,7 @@
   </style>
 </head>
 <body>
-  <!-- ENTER FULLSCREEN - SEMPRE VISÍVEL NA PRIMEIRA VEZ -->
+  <!-- ENTER FULLSCREEN - APENAS NA PRIMEIRA VEZ -->
   <div id="enterFs" class="screen visible" style="background:linear-gradient(135deg,#001e3c,#0b84ff)">
     <div style="text-align:center;background:rgba(0,0,0,0.3);padding:30px;border-radius:20px;backdrop-filter:blur(10px)">
       <img src="logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
@@ -52,13 +52,13 @@
     </div>
   </div>
 
-  <!-- WELCOME SCREEN -->
+  <!-- WELCOME SCREEN - COM BOTÃO INICIAR -->
   <div id="welcomeScreen" class="screen hidden" style="background:linear-gradient(135deg,#001e3c,#0b84ff)">
     <div id="welcome">
       <img src="logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
       <h1>📸 Bem-vindo à Cabine Fotográfica</h1>
       <p>Clique abaixo para iniciar</p>
-      <button id="startBtn">🎬 Clique aqui para iniciar</button>
+      <button id="startBtn">🎬 Iniciar Sessão de Fotos</button>
     </div>
   </div>
 
@@ -84,7 +84,6 @@
   <script>
     const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
     
-    // Socket.IO com configuração CORS
     const socket = io(SERVER_URL, {
       transports: ['polling', 'websocket'],
       reconnection: true,
@@ -98,7 +97,6 @@
     const params = new URLSearchParams(location.search);
     const session = params.get('session');
     
-    // Debug info
     const debugEl = document.getElementById('debugInfo');
     function updateDebugInfo() {
       debugEl.textContent = `Sessão: ${session || 'none'} | Socket: ${socket.connected ? '🟢' : '🔴'}`;
@@ -118,6 +116,19 @@
 
     let stream = null;
     let photos = [];
+
+    // ✅ CORREÇÃO: Controle de estado das telas
+    function showScreen(screenElement) {
+      // Esconde todas as telas
+      [enterFs, welcomeScreen, thankScreen].forEach(screen => {
+        screen.classList.add('hidden');
+        screen.classList.remove('visible');
+      });
+      
+      // Mostra a tela desejada
+      screenElement.classList.remove('hidden');
+      screenElement.classList.add('visible');
+    }
 
     // Socket.IO events
     socket.on('connect', () => {
@@ -148,28 +159,12 @@
       console.warn('⚠ Nenhuma sessão encontrada na URL');
     }
 
-    // Função para mostrar tela específica
-    function showScreen(screenName) {
-      const screens = ['enterFs', 'welcomeScreen', 'thankScreen'];
-      screens.forEach(screen => {
-        elements[screen].className = screen === screenName ? 'screen visible' : 'screen hidden';
-      });
-    }
-
-    // Elementos para controle de telas
-    const elements = {
-      enterFs: enterFs,
-      welcomeScreen: welcomeScreen,
-      thankScreen: thankScreen
-    };
-
+    // ✅ CORREÇÃO: Estado inicial baseado no localStorage
     const fsDone = localStorage.getItem('cabine_fs_done');
     if (fsDone === '1') {
-      enterFs.style.display = 'none';
-      welcomeScreen.style.display = 'flex';
+      showScreen(welcomeScreen);
     } else {
-      enterFs.style.display = 'flex';
-      welcomeScreen.style.display = 'none';
+      showScreen(enterFs);
     }
 
     enterFsBtn.addEventListener('click', async () => {
@@ -182,8 +177,7 @@
       }
       
       localStorage.setItem('cabine_fs_done', '1');
-      enterFs.style.display = 'none';
-      welcomeScreen.style.display = 'flex';
+      showScreen(welcomeScreen);
 
       if (session) {
         socket.emit('cell_entered_fullscreen', { session });
@@ -192,7 +186,7 @@
     });
 
     startBtn.addEventListener('click', async () => {
-      welcomeScreen.style.display = 'none';
+      showScreen(document.body); // Remove todas as telas para mostrar a câmera
       await startCamera();
       await runCaptureSequence();
     });
@@ -209,6 +203,7 @@
       } catch (e) {
         console.error('❌ Erro ao acessar a câmera:', e);
         alert('Erro ao acessar a câmera: ' + e.message);
+        showScreen(welcomeScreen); // Volta para welcome se falhar
       }
     }
 
@@ -271,19 +266,16 @@
       stopCamera();
       countdownEl.textContent = '';
       msgEl.textContent = '';
-      thankScreen.style.display = 'flex';
+      showScreen(thankScreen);
 
-      // ✅✅✅ CÓDIGO CORRIGIDO - ENVIO ROBUSTO DAS FOTOS:
-      // Send photos to server with MULTIPLE attempts and verification
+      // Envio robusto das fotos
       if (session && photos.length > 0) {
         console.log(`📤🔁 ENVIANDO ${photos.length} FOTOS - MÚLTIPLAS TENTATIVAS`);
         
-        // Função robusta de envio
         const sendPhotosWithRetry = (attempt = 1, maxAttempts = 5) => {
           if (socket.connected) {
             console.log(`🔄 Tentativa ${attempt}/${maxAttempts} de envio...`);
             
-            // Enviar as fotos
             socket.emit('photos_from_cell', { 
               session, 
               photos,
@@ -291,11 +283,9 @@
               totalAttempts: maxAttempts
             });
             
-            // Log detalhado
-            console.log(`✅ Tentativa ${attempt} enviada - Aguardando confirmação...`);
+            console.log(`✅ Tentativa ${attempt} enviada`);
             console.log(`📊 Detalhes: ${photos.length} fotos, sessão: ${session}`);
             
-            // Próxima tentativa se necessário
             if (attempt < maxAttempts) {
               setTimeout(() => {
                 sendPhotosWithRetry(attempt + 1, maxAttempts);
@@ -305,7 +295,6 @@
           } else {
             console.error(`❌ Socket desconectado na tentativa ${attempt}`);
             
-            // Tentar reconectar e enviar novamente
             if (attempt < maxAttempts) {
               console.log('🔄 Tentando reconectar socket...');
               socket.connect();
@@ -317,27 +306,10 @@
           }
         };
         
-        // Iniciar processo de envio
         sendPhotosWithRetry(1, 5);
         
-        // Enviar também evento de debug
-        socket.emit('debug', {
-          type: 'photos_sent_robust',
-          session: session,
-          photosCount: photos.length,
-          timestamp: new Date().toISOString(),
-          socketConnected: socket.connected
-        });
-        
       } else {
-        console.error('❌❌❌ FALHA CRÍTICA: Não pode enviar fotos - sessão:', session, 'fotos:', photos.length);
-        
-        if (!session) {
-          console.error('❌ MOTIVO: Sessão não encontrada na URL');
-        }
-        if (photos.length === 0) {
-          console.error('❌ MOTIVO: Nenhuma foto capturada');
-        }
+        console.error('❌❌❌ FALHA CRÍTICA: Não pode enviar fotos');
       }
     }
 
@@ -351,10 +323,9 @@
         stopCamera();
         canvasEl.style.display = 'none';
         videoEl.style.display = 'none';
-        thankScreen.style.display = 'none';
         countdownEl.textContent = '';
         msgEl.textContent = '';
-        welcomeScreen.style.display = 'flex';
+        showScreen(welcomeScreen);
         
         console.log('✅ Celular resetado para tela inicial');
       }
