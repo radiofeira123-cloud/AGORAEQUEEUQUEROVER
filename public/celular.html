@@ -20,10 +20,9 @@
     #startBtn{padding:18px 25px;border-radius:12px;border:none;background:#fff;color:#0b84ff;font-weight:700;cursor:pointer;font-size:20px;margin-top:5px;box-shadow:0 4px 15px rgba(0,0,0,0.3);width:100%;max-width:300px}
     .logo{max-width:180px;margin-bottom:20px;border-radius:10px}
     
-    /* Elementos de câmera - CORREÇÃO: garantir que video fique visível */
-    #videoEl, #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-    #videoEl{display:none} /* Inicialmente escondido */
-    #canvasEl{display:none;z-index:10} /* Canvas sobre o vídeo */
+    /* Elementos de câmera - CORREÇÃO: vídeo espelhado, canvas normal */
+    #videoEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;transform:scaleX(-1)} /* Apenas vídeo espelhado */
+    #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;z-index:10} /* Canvas NÃO espelhado */
     
     /* Countdown */
     #countdown{position:fixed;top:30%;left:0;right:0;text-align:center;font-size:120px;font-weight:800;text-shadow:0 0 20px #000, 0 0 30px #000;z-index:100;color:#fff}
@@ -322,9 +321,9 @@
         canvasEl.height = videoEl.videoHeight;
         const ctx = canvasEl.getContext('2d');
         
-        // ✅ CORREÇÃO: Manter o espelhamento igual ao vídeo
-        ctx.translate(canvasEl.width, 0);
-        ctx.scale(-1, 1);
+        // ✅ CORREÇÃO: Removido o espelhamento do canvas - agora a foto fica normal
+        // ctx.translate(canvasEl.width, 0); // REMOVIDO
+        // ctx.scale(-1, 1); // REMOVIDO
         ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
         
         // ✅ CORREÇÃO: Usar qualidade máxima (1.0) para a foto
@@ -333,7 +332,7 @@
         
         console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height} (QUALIDADE MÁXIMA)`);
 
-        // Show photo preview (SEM mensagem "Foto capturada!")
+        // ✅ CORREÇÃO: Mostrar preview da foto NÃO INVERTIDA
         videoEl.style.display = 'none';
         canvasEl.style.display = 'block';
         await sleep(3000);
