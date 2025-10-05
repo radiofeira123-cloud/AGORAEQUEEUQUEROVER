@@ -468,13 +468,68 @@
       bg.onerror = () => log('❌ Erro ao cargar background print');
     }
 
+    // ✅ CORREÇÃO COMPLETA: Impressão em 1 página só
     printBtn.addEventListener('click', () => {
       if (!lastPhotos.length) return alert('Nenhuma foto.');
+      
       const data = printCanvas.toDataURL('image/png');
       const w = window.open('');
-      w.document.write('<img src="'+data+'" style="max-width:100%;">');
+      
+      // ✅ CORREÇÃO: HTML otimizado para impressão em UMA página
+      w.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Impressão Cabine Fotográfica</title>
+          <style>
+            body { 
+              margin: 0; 
+              padding: 0; 
+              background: white;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+            }
+            img { 
+              max-width: 100%;
+              max-height: 100vh;
+              width: auto;
+              height: auto;
+              display: block;
+              margin: 0 auto;
+            }
+            @media print {
+              body { margin: 0; padding: 0; }
+              img { 
+                max-width: 100% !important;
+                max-height: 100vh !important;
+                width: auto !important;
+                height: auto !important;
+                page-break-inside: avoid;
+              }
+              @page {
+                margin: 0;
+                size: auto;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <img src="${data}" alt="Foto da Cabine" onload="window.print()">
+        </body>
+        </html>
+      `);
       w.document.close();
-      setTimeout(()=> w.print(), 700);
+      
+      // Impressão automática após carregar
+      w.onload = function() {
+        setTimeout(() => {
+          w.print();
+          // Fechar após impressão (opcional)
+          // setTimeout(() => w.close(), 1000);
+        }, 500);
+      };
     });
   </script>
 </body>
