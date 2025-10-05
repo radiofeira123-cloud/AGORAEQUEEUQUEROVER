@@ -34,7 +34,49 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+
+// ✅✅✅ SERVIÇO DE ARQUIVOS ESTÁTICOS CORRIGIDO
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.png')) {
+      res.setHeader('Content-Type', 'image/png');
+    } else if (path.endsWith('.jpg') || path.endsWith('.jpeg')) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    } else if (path.endsWith('.mp3')) {
+      res.setHeader('Content-Type', 'audio/mpeg');
+    }
+  }
+}));
+
+// ✅✅✅ ROTAS PARA OS ARQUIVOS PRINCIPAIS
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/celular.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'celular.html'));
+});
+
+app.get('/visualizador.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'visualizador.html'));
+});
+
+// ✅✅✅ ROTAS PARA AS IMAGENS (SE PRECISAR DE CONTROLE ESPECIAL)
+app.get('/logo.png', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'logo.png'));
+});
+
+app.get('/caralho.png', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'caralho.png'));
+});
+
+app.get('/imprimir.png', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'imprimir.png'));
+});
+
+app.get('/clack.mp3', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'clack.mp3'));
+});
 
 const server = http.createServer(app);
 
@@ -301,6 +343,7 @@ const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log('🚀 Server listening on port', PORT);
   console.log('🔓 CORS totalmente liberado para todas as origens');
+  console.log('📁 Servindo arquivos estáticos da pasta public');
   console.log('🌐 Domínios permitidos:');
   console.log('   - https://agoraequeeuquerover.vercel.app');
   console.log('   - https://agoraequeeuquerover.onrender.com');
