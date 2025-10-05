@@ -20,9 +20,9 @@
     #startBtn{padding:18px 25px;border-radius:12px;border:none;background:#fff;color:#0b84ff;font-weight:700;cursor:pointer;font-size:20px;margin-top:5px;box-shadow:0 4px 15px rgba(0,0,0,0.3);width:100%;max-width:300px}
     .logo{max-width:180px;margin-bottom:20px;border-radius:10px}
     
-    /* Elementos de câmera - CORREÇÃO: vídeo espelhado, canvas normal */
-    #videoEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;transform:scaleX(-1)} /* Apenas vídeo espelhado */
-    #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;z-index:10} /* Canvas NÃO espelhado */
+    /* Elementos de câmera - SEM espelhamento */
+    #videoEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none} /* Sem transform: scaleX(-1) */
+    #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;z-index:10} /* Canvas normal */
     
     /* Countdown */
     #countdown{position:fixed;top:30%;left:0;right:0;text-align:center;font-size:120px;font-weight:800;text-shadow:0 0 20px #000, 0 0 30px #000;z-index:100;color:#fff}
@@ -118,7 +118,7 @@
     let stream = null;
     let photos = [];
 
-    // ✅ CORREÇÃO: Controle de estado das telas
+    // Controle de estado das telas
     function showScreen(screenElement) {
       // Esconde todas as telas
       [enterFs, welcomeScreen, thankScreen].forEach(screen => {
@@ -146,7 +146,6 @@
       console.log('✅ Celular conectado ao servidor');
       updateDebugInfo();
       
-      // ✅ CORREÇÃO: Conectar à sessão FIXA
       if (session) {
         socket.emit('cell_connected');
         console.log('✅ Celular conectado à sessão fixa:', session);
@@ -163,7 +162,7 @@
       updateDebugInfo();
     });
 
-    // ✅ CORREÇÃO: Estado inicial - SEMPRE começar na tela de entrar em tela cheia
+    // Estado inicial - SEMPRE começar na tela de entrar em tela cheia
     showScreen(enterFs);
 
     enterFsBtn.addEventListener('click', async () => {
@@ -177,7 +176,7 @@
         console.warn('fullscreen failed', e); 
       }
       
-      // ✅ CORREÇÃO: Sempre ir para welcomeScreen após entrar em tela cheia
+      // Sempre ir para welcomeScreen após entrar em tela cheia
       showScreen(welcomeScreen);
 
       if (session) {
@@ -196,11 +195,13 @@
       try {
         console.log('📷 Tentando acessar câmera frontal...');
         
-        // ✅ CORREÇÃO: REMOVIDAS LIMITAÇÕES DE RESOLUÇÃO - usar melhor qualidade da câmera
+        // ✅ CORREÇÃO: Configuração para câmera frontal com resolução máxima
         const constraints = {
           video: { 
             facingMode: { exact: "user" }, // Forçar câmera frontal
-            // REMOVIDAS restrições de width, height e frameRate para usar máxima resolução
+            width: { ideal: 3264 }, // Resolução máxima
+            height: { ideal: 1836 }, // Resolução máxima
+            aspectRatio: { ideal: 16/9 }
           }, 
           audio: false 
         };
@@ -211,15 +212,15 @@
         console.log('✅ Permissão concedida, configurando vídeo...');
         videoEl.srcObject = stream;
         
-        // ✅ CORREÇÃO CRÍTICA: Garantir que o vídeo fique visível
+        // Garantir que o vídeo fique visível
         videoEl.style.display = 'block';
         
-        // ✅ CORREÇÃO: Aguardar o vídeo estar realmente pronto
+        // Aguardar o vídeo estar realmente pronto
         return new Promise((resolve, reject) => {
           videoEl.onloadedmetadata = () => {
             console.log('✅ Vídeo carregado - Dimensões:', videoEl.videoWidth, 'x', videoEl.videoHeight);
             
-            // ✅ CORREÇÃO EXTRA: Forçar play para garantir que o vídeo funcione
+            // Forçar play para garantir que o vídeo funcione
             videoEl.play().then(() => {
               console.log('✅ Vídeo está reproduzindo');
               resolve();
@@ -248,11 +249,13 @@
       } catch (e) {
         console.error('❌ Erro ao acessar a câmera:', e);
         
-        // ✅ TENTATIVA ALTERNATIVA: Configuração mais simples
+        // TENTATIVA ALTERNATIVA: Configuração mais simples
         try {
           console.log('🔄 Tentando configuração alternativa da câmera...');
           stream = await navigator.mediaDevices.getUserMedia({ 
-            video: true, // Configuração mais genérica
+            video: { 
+              facingMode: { exact: "user" }
+            },
             audio: false 
           });
           
@@ -282,7 +285,7 @@
       photos = [];
       console.log('🔄 Iniciando sequência de captura');
       
-      // ✅ CORREÇÃO CRÍTICA: Garantir que o vídeo esteja visível durante TODA a contagem
+      // Garantir que o vídeo esteja visível durante TODA a contagem
       videoEl.style.display = 'block';
       
       for (let shot = 0; shot < 3; shot++) {
@@ -309,33 +312,25 @@
         
         countdownEl.textContent = '';
         
-        // ✅ CORREÇÃO: Capturar foto com MÁXIMA resolução disponível
+        // Capturar foto com a resolução real da câmera
         canvasEl.width = videoEl.videoWidth;
         canvasEl.height = videoEl.videoHeight;
         const ctx = canvasEl.getContext('2d');
         
-        // ✅ CORREÇÃO CRÍTICA: CORRIGIR FOTOS INVERTIDAS
-        // O vídeo está espelhado (transform: scaleX(-1)), mas queremos a foto normal
-        // Para isso, vamos desenhar o vídeo normal (sem espelhamento) no canvas
-        ctx.save();
-        // Aplicar o espelhamento para compensar o espelhamento do CSS do vídeo
-        ctx.translate(canvasEl.width, 0);
-        ctx.scale(-1, 1);
+        // Desenhar a foto sem espelhamento (igual ao vídeo)
         ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-        ctx.restore();
         
-        // ✅ CORREÇÃO: Usar qualidade máxima (1.0) para a foto
-        const data = canvasEl.toDataURL('image/jpeg', 1.0);
+        const data = canvasEl.toDataURL('image/jpeg', 1.0); // Qualidade máxima
         photos.push(data);
         
         console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height} (QUALIDADE MÁXIMA)`);
 
-        // ✅ CORREÇÃO: Mostrar preview da foto NÃO INVERTIDA
+        // Show photo preview
         videoEl.style.display = 'none';
         canvasEl.style.display = 'block';
         await sleep(3000);
         canvasEl.style.display = 'none';
-        videoEl.style.display = 'block'; // ✅ IMPORTANTE: Voltar a mostrar o vídeo
+        videoEl.style.display = 'block'; // Voltar a mostrar o vídeo
       }
 
       // Finished sequence
@@ -352,7 +347,6 @@
           if (socket.connected) {
             console.log(`🔄 Tentativa ${attempt}/${maxAttempts} de envio...`);
             
-            // ✅ CORREÇÃO: Enviar sem session específica (servidor usa sessão fixa)
             socket.emit('photos_from_cell', { 
               photos,
               attempt: attempt,
@@ -389,7 +383,7 @@
       }
     }
 
-    // ✅ CORREÇÃO CRÍTICA: Quando resetar sessão, voltar para WELCOME SCREEN (não enterFs)
+    // Quando resetar sessão, voltar para WELCOME SCREEN (não enterFs) e manter tela cheia
     socket.on('reset_session', () => {
       console.log('🔄 Reset session recebido - voltando para tela de welcome');
       
@@ -399,8 +393,7 @@
       countdownEl.textContent = '';
       msgEl.textContent = '';
       
-      // ✅ CORREÇÃO IMPORTANTE: Voltar para WELCOME SCREEN, não enterFs
-      // E NÃO sair da tela cheia!
+      // Voltar para WELCOME SCREEN, não enterFs (e manter tela cheia)
       showScreen(welcomeScreen);
       
       console.log('✅ Celular resetado para tela de welcome (mantendo tela cheia)');
