@@ -20,8 +20,10 @@
     #startBtn{padding:18px 25px;border-radius:12px;border:none;background:#fff;color:#0b84ff;font-weight:700;cursor:pointer;font-size:20px;margin-top:5px;box-shadow:0 4px 15px rgba(0,0,0,0.3);width:100%;max-width:300px}
     .logo{max-width:180px;margin-bottom:20px;border-radius:10px}
     
-    /* Elementos de câmera */
-    #videoEl, #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;transform:scaleX(-1)}
+    /* Elementos de câmera - CORREÇÃO: garantir que video fique visível */
+    #videoEl, #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+    #videoEl{display:none} /* Inicialmente escondido */
+    #canvasEl{display:none;z-index:10} /* Canvas sobre o vídeo */
     
     /* Countdown */
     #countdown{position:fixed;top:30%;left:0;right:0;text-align:center;font-size:120px;font-weight:800;text-shadow:0 0 20px #000, 0 0 30px #000;z-index:100;color:#fff}
@@ -120,13 +122,17 @@
     // ✅ CORREÇÃO: Controle de estado das telas
     function showScreen(screenElement) {
       // Esconde todas as telas
-      [enterFs, welcomeScreen, thankScreen, videoEl, canvasEl].forEach(screen => {
+      [enterFs, welcomeScreen, thankScreen].forEach(screen => {
         if (screen) {
           screen.classList.add('hidden');
           screen.classList.remove('visible');
-          if (screen.style) screen.style.display = 'none';
+          screen.style.display = 'none';
         }
       });
+      
+      // Para video e canvas, apenas controlamos display
+      videoEl.style.display = 'none';
+      canvasEl.style.display = 'none';
       
       // Mostra a tela desejada
       if (screenElement) {
@@ -198,13 +204,11 @@
       try {
         console.log('📷 Tentando acessar câmera frontal...');
         
-        // ✅ CORREÇÃO COMPLETA: Configuração muito mais robusta da câmera
+        // ✅ CORREÇÃO: REMOVIDAS LIMITAÇÕES DE RESOLUÇÃO - usar melhor qualidade da câmera
         const constraints = {
           video: { 
             facingMode: { exact: "user" }, // Forçar câmera frontal
-            width: { min: 640, ideal: 1280, max: 1920 },
-            height: { min: 480, ideal: 720, max: 1080 },
-            frameRate: { ideal: 30, max: 60 }
+            // REMOVIDAS restrições de width, height e frameRate para usar máxima resolução
           }, 
           audio: false 
         };
@@ -214,13 +218,23 @@
         
         console.log('✅ Permissão concedida, configurando vídeo...');
         videoEl.srcObject = stream;
+        
+        // ✅ CORREÇÃO CRÍTICA: Garantir que o vídeo fique visível
         videoEl.style.display = 'block';
         
         // ✅ CORREÇÃO: Aguardar o vídeo estar realmente pronto
         return new Promise((resolve, reject) => {
           videoEl.onloadedmetadata = () => {
             console.log('✅ Vídeo carregado - Dimensões:', videoEl.videoWidth, 'x', videoEl.videoHeight);
-            resolve();
+            
+            // ✅ CORREÇÃO EXTRA: Forçar play para garantir que o vídeo funcione
+            videoEl.play().then(() => {
+              console.log('✅ Vídeo está reproduzindo');
+              resolve();
+            }).catch(e => {
+              console.error('❌ Erro ao reproduzir vídeo:', e);
+              reject(e);
+            });
           };
           
           videoEl.onerror = () => {
@@ -231,6 +245,7 @@
           // Timeout de segurança
           setTimeout(() => {
             if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+              console.log('✅ Vídeo carregado via timeout');
               resolve();
             } else {
               reject(new Error('Timeout ao carregar câmera'));
@@ -275,7 +290,7 @@
       photos = [];
       console.log('🔄 Iniciando sequência de captura');
       
-      // ✅ CORREÇÃO: Garantir que o vídeo esteja visível durante a contagem
+      // ✅ CORREÇÃO CRÍTICA: Garantir que o vídeo esteja visível durante TODA a contagem
       videoEl.style.display = 'block';
       
       for (let shot = 0; shot < 3; shot++) {
@@ -302,7 +317,7 @@
         
         countdownEl.textContent = '';
         
-        // ✅ CORREÇÃO: Capturar foto com dimensões reais do vídeo
+        // ✅ CORREÇÃO: Capturar foto com MÁXIMA resolução disponível
         canvasEl.width = videoEl.videoWidth;
         canvasEl.height = videoEl.videoHeight;
         const ctx = canvasEl.getContext('2d');
@@ -312,17 +327,18 @@
         ctx.scale(-1, 1);
         ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
         
-        const data = canvasEl.toDataURL('image/jpeg', 0.92);
+        // ✅ CORREÇÃO: Usar qualidade máxima (1.0) para a foto
+        const data = canvasEl.toDataURL('image/jpeg', 1.0);
         photos.push(data);
         
-        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height}`);
+        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height} (QUALIDADE MÁXIMA)`);
 
         // Show photo preview (SEM mensagem "Foto capturada!")
         videoEl.style.display = 'none';
         canvasEl.style.display = 'block';
         await sleep(3000);
         canvasEl.style.display = 'none';
-        videoEl.style.display = 'block';
+        videoEl.style.display = 'block'; // ✅ IMPORTANTE: Voltar a mostrar o vídeo
       }
 
       // Finished sequence
