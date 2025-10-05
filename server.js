@@ -176,48 +176,54 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ✅✅✅ CÓDIGO CORRIGIDO - RECEBIMENTO DAS FOTOS COM LOGS DETALHADOS:
   // celular -> server: photos_from_cell - COM LOGS DETALHADOS
-  socket.on('photos_from_cell', ({ session, photos }) => {
-    console.log(`\n📸📸📸 RECEBENDO FOTOS DO CELULAR 📸📸📸`);
-    console.log(`Sessão: ${session}`);
-    console.log(`Quantidade de fotos: ${photos ? photos.length : 0}`);
-    console.log(`Socket ID: ${socket.id}`);
-    console.log(`Origem: ${socket.handshake.headers.origin}`);
-    console.log(`Clientes na sala ${session}:`, io.sockets.adapter.rooms.get(session)?.size || 0);
+  socket.on('photos_from_cell', ({ session, photos, attempt }) => {
+    console.log(`\n📸📸📸📸📸 RECEBENDO FOTOS DO CELULAR 📸📸📸📸📸`);
+    console.log(`📍 Sessão: ${session}`);
+    console.log(`🖼️  Quantidade de fotos: ${photos ? photos.length : 'NENHUMA'}`);
+    console.log(`🔄 Tentativa: ${attempt || 1}`);
+    console.log(`🔌 Socket ID: ${socket.id}`);
+    console.log(`👥 Clientes na sala ${session}:`, io.sockets.adapter.rooms.get(session)?.size || 0);
 
     if (!session) {
-      console.warn('❌ ERRO: photos_from_cell missing session');
+      console.error('❌❌❌ ERRO CRÍTICO: photos_from_cell SEM SESSÃO');
       return;
     }
     
-    if (!Array.isArray(photos)) {
-      console.warn('❌ ERRO: photos not array in photos_from_cell');
+    if (!photos || !Array.isArray(photos)) {
+      console.error('❌❌❌ ERRO CRÍTICO: photos não é array válido');
       return;
     }
 
     // Initialize session if not exists
     if (!sessions[session]) {
       sessions[session] = { photos: [] };
-      console.log(`🆕 Sessão ${session} criada no servidor`);
+      console.log(`🆕 NOVA SESSÃO CRIADA: ${session}`);
     }
 
     // Store photos
     sessions[session].photos = photos.slice();
     sessions[session].lastUpdated = new Date().toISOString();
     
-    console.log(`✅ ${photos.length} fotos armazenadas para sessão ${session}`);
+    console.log(`💾 ${photos.length} fotos armazenadas para sessão ${session}`);
     
-    // ENVIAR PARA TODOS NA SALA (OPERADOR)
+    // ENVIAR PARA OPERADOR - COM CONFIRMAÇÃO
     const room = io.sockets.adapter.rooms.get(session);
     const clientCount = room ? room.size : 0;
     
-    console.log(`📤 Enviando fotos para ${clientCount} clientes na sala ${session}`);
+    console.log(`📤 ENVIANDO PARA ${clientCount} CLIENTES NA SALA ${session}`);
     
     if (clientCount > 0) {
       io.to(session).emit('photos_ready', photos);
-      console.log(`✅ FOTOS ENVIADAS PARA O OPERADOR - ${photos.length} fotos`);
+      console.log(`✅✅✅ FOTOS ENVIADAS COM SUCESSO PARA O OPERADOR`);
+      console.log(`📊 RESUMO: ${photos.length} fotos → ${clientCount} clientes`);
+      
+      // Log dos IDs dos clientes que receberam
+      const clients = Array.from(room);
+      console.log(`👥 Clientes na sala: ${clients.join(', ')}`);
     } else {
-      console.log(`❌ NENHUM CLIENTE NA SALA ${session} PARA RECEBER AS FOTOS`);
+      console.error(`❌❌❌ NENHUM CLIENTE NA SALA ${session} - OPERADOR NÃO RECEBEU AS FOTOS`);
     }
   });
 
