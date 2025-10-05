@@ -71,18 +71,18 @@
   <script>
     const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
 
-    // ✅ NOVAS COORDENADAS PARA STORIES (caralho.png)
+    // ✅ NOVAS COORDENADAS PARA STORIES (caralho (1).png - 3375x6000)
     const STORIES_COORDS = [
-      { x: 155, y: 381,  w: 2225, h: 1341 },   // Foto 1: (155,381) a (2380,1722)
-      { x: 155, y: 1817, w: 2222, h: 1341 },   // Foto 2: (155,1817) a (2377,3158)  
-      { x: 155, y: 3262, w: 2222, h: 1338 }    // Foto 3: (155,3262) a (2377,4600)
+      { x: 155, y: 381,  w: 2225, h: 1341 },   // Área 1: (155,381) a (2380,1722)
+      { x: 155, y: 1817, w: 2222, h: 1341 },   // Área 2: (155,1817) a (2377,3158)  
+      { x: 155, y: 3262, w: 2222, h: 1338 }    // Área 3: (155,3262) a (2377,4600)
     ];
 
-    // ✅ NOVAS COORDENADAS PARA IMPRESSÃO (imprimir.png) - 5167x3322 pixels
+    // ✅ NOVAS COORDENADAS PARA IMPRESSÃO (imprimir (1).png - 5167x3322)
     const PRINT_COORDS = [
-      { x: 191, y: 184,  w: 2160, h: 1305 },   // Foto 1: (191,184) a (2351,1489)
-      { x: 188, y: 1578, w: 2163, h: 1308 },   // Foto 2: (188,1578) a (2351,2886)
-      { x: 191, y: 2970, w: 2160, h: 1305 }    // Foto 3: Aproximação para terceira foto
+      { x: 191, y: 184,  w: 2160, h: 1305 },   // Área 1: (191,184) a (2351,1489)
+      { x: 188, y: 1578, w: 2163, h: 1308 },   // Área 2: (188,1578) a (2351,2886)
+      { x: 191, y: 2970, w: 2160, h: 1305 }    // Área 3: Estimativa para terceira foto
     ];
 
     const socket = io(SERVER_URL, {
@@ -162,14 +162,14 @@
       generateQrCode();
     });
 
-    // ✅ CORREÇÃO: Botão IMGBB agora envia fotos soltas + montagem stories
+    // ✅ CORREÇÃO: Botão IMGBB envia 3 fotos soltas + montagem stories
     genVisualizadorQrBtn.addEventListener('click', () => {
       if (!currentSession || lastPhotos.length === 0) {
         log('❌ Nenhuma foto disponível para gerar visualizador');
         return;
       }
       
-      // Obter a montagem do stories (caralho.png com fotos)
+      // Obter a montagem do stories (caralho (1).png com fotos)
       const storiesMontage = storiesCanvas.toDataURL('image/jpeg', 0.92);
       
       log('🔄 Criando sessão do visualizador e enviando para IMGBB...');
@@ -325,11 +325,12 @@
       ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
     }
 
+    // ✅ CORREÇÃO: Usar caralho (1).png
     function drawStories(photos){
       const ctx = storiesCanvas.getContext('2d');
       ctx.clearRect(0,0,storiesCanvas.width, storiesCanvas.height);
       const bg = new Image();
-      bg.src = 'caralho.png';
+      bg.src = 'caralho (1).png'; // ✅ NOVO NOME
       bg.onload = () => {
         ctx.drawImage(bg, 0, 0, storiesCanvas.width, storiesCanvas.height);
         photos.forEach((p, i) => {
@@ -346,11 +347,12 @@
       bg.onerror = () => log('❌ Erro ao cargar background stories');
     }
 
+    // ✅ CORREÇÃO: Usar imprimir (1).png
     function drawPrint(photos){
       const ctx = printCanvas.getContext('2d');
       ctx.clearRect(0,0,printCanvas.width, printCanvas.height);
       const bg = new Image();
-      bg.src = 'imprimir.png';
+      bg.src = 'imprimir (1).png'; // ✅ NOVO NOME
       bg.onload = () => {
         ctx.drawImage(bg, 0, 0, printCanvas.width, printCanvas.height);
         photos.forEach((p, i) => {
