@@ -6,9 +6,22 @@ const crypto = require('crypto');
 
 const app = express();
 
-// CORS MÁXIMO - PERMITIR TUDO
+// CORS MÁXIMO - PERMITIR TUDO (CORRIGIDO)
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const allowedOrigins = [
+    'https://agoraequeeuquerover.vercel.app',
+    'https://agoraequeeuquerover.onrender.com',
+    'http://localhost:3000',
+    'http://localhost:10000'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-socket-id');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -25,10 +38,15 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const server = http.createServer(app);
 
-// Socket.IO com CORS MÁXIMO
+// Socket.IO com CORS MÁXIMO CORRIGIDO
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: [
+      'https://agoraequeeuquerover.vercel.app',
+      'https://agoraequeeuquerover.onrender.com',
+      'http://localhost:3000',
+      'http://localhost:10000'
+    ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["*"],
     credentials: true
@@ -283,4 +301,9 @@ const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log('🚀 Server listening on port', PORT);
   console.log('🔓 CORS totalmente liberado para todas as origens');
+  console.log('🌐 Domínios permitidos:');
+  console.log('   - https://agoraequeeuquerover.vercel.app');
+  console.log('   - https://agoraequeeuquerover.onrender.com');
+  console.log('   - http://localhost:3000');
+  console.log('   - http://localhost:10000');
 });
