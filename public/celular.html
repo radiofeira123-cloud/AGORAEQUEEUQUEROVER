@@ -120,14 +120,20 @@
     // ✅ CORREÇÃO: Controle de estado das telas
     function showScreen(screenElement) {
       // Esconde todas as telas
-      [enterFs, welcomeScreen, thankScreen].forEach(screen => {
-        screen.classList.add('hidden');
-        screen.classList.remove('visible');
+      [enterFs, welcomeScreen, thankScreen, videoEl, canvasEl].forEach(screen => {
+        if (screen) {
+          screen.classList.add('hidden');
+          screen.classList.remove('visible');
+          if (screen.style) screen.style.display = 'none';
+        }
       });
       
       // Mostra a tela desejada
-      screenElement.classList.remove('hidden');
-      screenElement.classList.add('visible');
+      if (screenElement) {
+        screenElement.classList.remove('hidden');
+        screenElement.classList.add('visible');
+        screenElement.style.display = 'flex';
+      }
     }
 
     // Socket.IO events
@@ -159,13 +165,9 @@
       console.warn('⚠ Nenhuma sessão encontrada na URL');
     }
 
-    // ✅ CORREÇÃO: Estado inicial baseado no localStorage
-    const fsDone = localStorage.getItem('cabine_fs_done');
-    if (fsDone === '1') {
-      showScreen(welcomeScreen);
-    } else {
-      showScreen(enterFs);
-    }
+    // ✅ CORREÇÃO: Estado inicial - SEMPRE começar na tela de entrar em tela cheia
+    // Não usar localStorage para controlar o estado
+    showScreen(enterFs);
 
     enterFsBtn.addEventListener('click', async () => {
       try {
@@ -176,7 +178,7 @@
         console.warn('fullscreen failed', e); 
       }
       
-      localStorage.setItem('cabine_fs_done', '1');
+      // ✅ CORREÇÃO: Sempre ir para welcomeScreen após entrar em tela cheia
       showScreen(welcomeScreen);
 
       if (session) {
@@ -186,7 +188,8 @@
     });
 
     startBtn.addEventListener('click', async () => {
-      showScreen(document.body); // Remove todas as telas para mostrar a câmera
+      showScreen(null); // Remove todas as telas para mostrar a câmera
+      videoEl.style.display = 'block';
       await startCamera();
       await runCaptureSequence();
     });
@@ -213,6 +216,7 @@
         stream = null;
       }
       videoEl.style.display = 'none';
+      canvasEl.style.display = 'none';
     }
 
     function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
@@ -313,9 +317,10 @@
       }
     }
 
+    // ✅ CORREÇÃO: Quando resetar sessão, voltar para ENTER FULLSCREEN (não welcome)
     socket.on('reset_session', ({ session: s }) => {
       if (!s || s === session) {
-        console.log('🔄 Reset session recebido');
+        console.log('🔄 Reset session recebido - voltando para tela inicial');
         try { 
           if (document.fullscreenElement) document.exitFullscreen(); 
         } catch(e){}
@@ -325,9 +330,11 @@
         videoEl.style.display = 'none';
         countdownEl.textContent = '';
         msgEl.textContent = '';
-        showScreen(welcomeScreen);
         
-        console.log('✅ Celular resetado para tela inicial');
+        // ✅ IMPORTANTE: Voltar para ENTER FULLSCREEN, não welcome
+        showScreen(enterFs);
+        
+        console.log('✅ Celular resetado para tela inicial (enter fullscreen)');
       }
     });
   </script>
