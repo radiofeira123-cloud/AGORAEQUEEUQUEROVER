@@ -6,7 +6,7 @@ const crypto = require('crypto');
 
 const app = express();
 
-// CORS MÁXIMO - PERMITIR TUDO (CORRIGIDO)
+// CORS MÁXIMO - PERMITIR TUDO
 app.use((req, res, next) => {
   const allowedOrigins = [
     'https://agoraequeeuquerover.vercel.app',
@@ -35,7 +35,7 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// ✅✅✅ SERVIÇO DE ARQUIVOS ESTÁTICOS CORRIGIDO
+// SERVIÇO DE ARQUIVOS ESTÁTICOS
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, path) => {
     if (path.endsWith('.png')) {
@@ -48,7 +48,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-// ✅✅✅ ROTAS PARA OS ARQUIVOS PRINCIPAIS
+// ROTAS PARA OS ARQUIVOS PRINCIPAIS
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -61,17 +61,17 @@ app.get('/visualizador.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'visualizador.html'));
 });
 
-// ✅✅✅ ROTAS PARA AS IMAGENS (SE PRECISAR DE CONTROLE ESPECIAL)
+// ROTAS PARA AS IMAGENS
 app.get('/logo.png', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'logo.png'));
 });
 
-app.get('/caralho.png', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'caralho.png'));
+app.get('/caralho (1).png', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'caralho (1).png'));
 });
 
-app.get('/imprimir.png', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'imprimir.png'));
+app.get('/imprimir (1).png', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'imprimir (1).png'));
 });
 
 app.get('/clack.mp3', (req, res) => {
@@ -80,7 +80,7 @@ app.get('/clack.mp3', (req, res) => {
 
 const server = http.createServer(app);
 
-// Socket.IO com CORS MÁXIMO CORRIGIDO
+// Socket.IO com CORS
 const io = new Server(server, {
   cors: {
     origin: [
@@ -106,30 +106,46 @@ const viewerSessions = {};
 
 const IMGBB_API_KEY = "6734e028b20f88d5795128d242f85582";
 
-// Função para upload no IMGBB usando fetch nativo
+// ✅ CORREÇÃO: Função de upload IMGBB melhorada
 async function uploadToImgbb(imageData) {
-  try {
-    const base64Data = imageData.split(',')[1];
-    
-    const formData = new URLSearchParams();
-    formData.append('key', IMGBB_API_KEY);
-    formData.append('image', base64Data);
+    try {
+        console.log(`📤 Iniciando upload para IMGBB...`);
+        
+        // Verificar se a imagem é muito grande
+        if (imageData.length > 5000000) {
+            console.warn('⚠️ Imagem muito grande, pode causar problemas');
+        }
+        
+        const base64Data = imageData.split(',')[1];
+        
+        const formData = new URLSearchParams();
+        formData.append('key', IMGBB_API_KEY);
+        formData.append('image', base64Data);
 
-    const response = await fetch('https://api.imgbb.com/1/upload', {
-      method: 'POST',
-      body: formData
-    });
-    
-    const data = await response.json();
-    if (data.success) {
-      return data.data.url;
-    } else {
-      throw new Error('Upload failed: ' + (data.error?.message || 'Unknown error'));
+        console.log(`📊 Tamanho base64: ${Math.round(base64Data.length/1024)}KB`);
+        
+        const response = await fetch('https://api.imgbb.com/1/upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log(`✅ Upload IMGBB bem-sucedido: ${data.data.url}`);
+            return data.data.url;
+        } else {
+            console.error(`❌ Upload IMGBB falhou: ${data.error?.message || 'Erro desconhecido'}`);
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ Erro no upload IMGBB:', error.message);
+        return null;
     }
-  } catch (error) {
-    console.error('❌ Erro no upload IMGBB:', error);
-    return null;
-  }
 }
 
 io.on('connection', (socket) => {
@@ -143,60 +159,84 @@ io.on('connection', (socket) => {
     console.log('🆕 NOVA SESSÃO CRIADA:', id);
   });
 
-  // Criar sessão do visualizador com upload para IMGBB (fotos + moldura)
+  // ✅ CORREÇÃO: Evento create_viewer_session com tratamento melhorado
   socket.on('create_viewer_session', async ({ session, photos, storiesMontage }) => {
-    console.log('🔄 Criando sessão do visualizador para:', session);
-    
+    console.log(`\n🔄🔄🔄 CREATE_VIEWER_SESSION INICIADO 🔄🔄🔄`);
+    console.log(`📍 Sessão: ${session}`);
+    console.log(`📸 Quantidade de fotos: ${photos ? photos.length : 0}`);
+    console.log(`🖼️ Stories Montage: ${storiesMontage ? 'Sim' : 'Não'}`);
+    console.log(`🔌 Socket ID: ${socket.id}`);
+
     if (!session || !photos || !Array.isArray(photos)) {
-      socket.emit('viewer_session_error', { error: 'Dados inválidos' });
-      return;
+        console.error('❌❌❌ ERRO: Dados inválidos para create_viewer_session');
+        socket.emit('viewer_session_error', { error: 'Dados inválidos' });
+        return;
     }
 
     try {
-      // Fazer upload de cada foto para IMGBB
-      const uploadedUrls = [];
-      
-      for (let i = 0; i < photos.length; i++) {
-        console.log(`📤 Enviando foto ${i+1} para IMGBB...`);
-        const imgbbUrl = await uploadToImgbb(photos[i]);
-        if (imgbbUrl) {
-          uploadedUrls.push(imgbbUrl);
-          console.log(`✅ Foto ${i+1} enviada: ${imgbbUrl}`);
-        } else {
-          console.log(`❌ Falha no upload da foto ${i+1}`);
+        console.log('🚀 Iniciando uploads para IMGBB...');
+
+        // Fazer upload de cada foto para IMGBB
+        const uploadedUrls = [];
+        let successCount = 0;
+        
+        for (let i = 0; i < photos.length; i++) {
+            console.log(`📤 Enviando foto ${i+1} para IMGBB...`);
+            try {
+                const imgbbUrl = await uploadToImgbb(photos[i]);
+                if (imgbbUrl) {
+                    uploadedUrls.push(imgbbUrl);
+                    successCount++;
+                    console.log(`✅ Foto ${i+1} enviada: ${imgbbUrl}`);
+                } else {
+                    console.log(`❌ Falha no upload da foto ${i+1}`);
+                    uploadedUrls.push(null);
+                }
+            } catch (error) {
+                console.error(`❌ Erro no upload da foto ${i+1}:`, error.message);
+                uploadedUrls.push(null);
+            }
+            
+            // Pequena pausa entre uploads
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
-      }
 
-      // Fazer upload da moldura do stories para IMGBB
-      let storiesUrl = null;
-      if (storiesMontage) {
-        console.log('📤 Enviando moldura do stories para IMGBB...');
-        storiesUrl = await uploadToImgbb(storiesMontage);
-        if (storiesUrl) {
-          console.log(`✅ Moldura stories enviada: ${storiesUrl}`);
-        } else {
-          console.log('❌ Falha no upload da moldura do stories');
+        // Fazer upload da moldura do stories para IMGBB
+        let storiesUrl = null;
+        if (storiesMontage) {
+            console.log('📤 Enviando moldura do stories para IMGBB...');
+            try {
+                storiesUrl = await uploadToImgbb(storiesMontage);
+                if (storiesUrl) {
+                    console.log(`✅ Moldura stories enviada: ${storiesUrl}`);
+                } else {
+                    console.log('❌ Falha no upload da moldura do stories');
+                }
+            } catch (error) {
+                console.error('❌ Erro no upload da moldura:', error.message);
+            }
         }
-      }
 
-      // Criar sessão do visualizador
-      const viewerId = crypto.randomUUID();
-      viewerSessions[viewerId] = {
-        originalSession: session,
-        photos: photos, // Data URLs originais para download
-        photosImgbb: uploadedUrls, // URLs IMGBB
-        storiesMontage: storiesMontage, // Data URL da moldura
-        storiesMontageImgbb: storiesUrl, // URL IMGBB da moldura
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 dias
-      };
+        // Criar sessão do visualizador
+        const viewerId = crypto.randomUUID();
+        viewerSessions[viewerId] = {
+            originalSession: session,
+            photos: photos,
+            photosImgbb: uploadedUrls,
+            storiesMontage: storiesMontage,
+            storiesMontageImgbb: storiesUrl,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        };
 
-      console.log(`🎯 Sessão do visualizador criada: ${viewerId} com ${uploadedUrls.length} fotos`);
-      socket.emit('viewer_session_created', { viewerId });
+        console.log(`🎯 Sessão do visualizador criada: ${viewerId}`);
+        console.log(`📊 Resumo: ${successCount}/${photos.length} fotos enviadas com sucesso`);
+        
+        socket.emit('viewer_session_created', { viewerId });
 
     } catch (error) {
-      console.error('❌ Erro ao criar sessão do visualizador:', error);
-      socket.emit('viewer_session_error', { error: error.message });
+        console.error('❌ Erro ao criar sessão do visualizador:', error);
+        socket.emit('viewer_session_error', { error: error.message });
     }
   });
 
@@ -236,15 +276,13 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ✅✅✅ CÓDIGO CORRIGIDO - RECEBIMENTO DAS FOTOS COM LOGS DETALHADOS:
-  // celular -> server: photos_from_cell - COM LOGS DETALHADOS
+  // celular -> server: photos_from_cell
   socket.on('photos_from_cell', ({ session, photos, attempt }) => {
-    console.log(`\n📸📸📸📸📸 RECEBENDO FOTOS DO CELULAR 📸📸📸📸📸`);
+    console.log(`\n📸📸📸 RECEBENDO FOTOS DO CELULAR 📸📸📸`);
     console.log(`📍 Sessão: ${session}`);
     console.log(`🖼️  Quantidade de fotos: ${photos ? photos.length : 'NENHUMA'}`);
     console.log(`🔄 Tentativa: ${attempt || 1}`);
     console.log(`🔌 Socket ID: ${socket.id}`);
-    console.log(`👥 Clientes na sala ${session}:`, io.sockets.adapter.rooms.get(session)?.size || 0);
 
     if (!session) {
       console.error('❌❌❌ ERRO CRÍTICO: photos_from_cell SEM SESSÃO');
@@ -268,7 +306,7 @@ io.on('connection', (socket) => {
     
     console.log(`💾 ${photos.length} fotos armazenadas para sessão ${session}`);
     
-    // ENVIAR PARA OPERADOR - COM CONFIRMAÇÃO
+    // ENVIAR PARA OPERADOR
     const room = io.sockets.adapter.rooms.get(session);
     const clientCount = room ? room.size : 0;
     
@@ -277,13 +315,8 @@ io.on('connection', (socket) => {
     if (clientCount > 0) {
       io.to(session).emit('photos_ready', photos);
       console.log(`✅✅✅ FOTOS ENVIADAS COM SUCESSO PARA O OPERADOR`);
-      console.log(`📊 RESUMO: ${photos.length} fotos → ${clientCount} clientes`);
-      
-      // Log dos IDs dos clientes que receberam
-      const clients = Array.from(room);
-      console.log(`👥 Clientes na sala: ${clients.join(', ')}`);
     } else {
-      console.error(`❌❌❌ NENHUM CLIENTE NA SALA ${session} - OPERADOR NÃO RECEBEU AS FOTOS`);
+      console.error(`❌❌❌ NENHUM CLIENTE NA SALA ${session}`);
     }
   });
 
@@ -342,11 +375,6 @@ setInterval(() => {
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log('🚀 Server listening on port', PORT);
-  console.log('🔓 CORS totalmente liberado para todas as origens');
-  console.log('📁 Servindo arquivos estáticos da pasta public');
-  console.log('🌐 Domínios permitidos:');
-  console.log('   - https://agoraequeeuquerover.vercel.app');
-  console.log('   - https://agoraequeeuquerover.onrender.com');
-  console.log('   - http://localhost:3000');
-  console.log('   - http://localhost:10000');
+  console.log('🔓 CORS totalmente liberado');
+  console.log('📁 Servindo arquivos estáticos');
 });
