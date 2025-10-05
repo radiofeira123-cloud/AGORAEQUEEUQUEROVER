@@ -34,7 +34,7 @@
       <button id="genQr">Gerar QR Code Celular</button>
       <button id="finalizarSessao" disabled>Finalizar Sessão</button>
       <button id="genVisualizadorQr" disabled>Gerar QR Visualizador + IMGBB</button>
-      <button id="printBtn" disabled>Imprimir (9x13)</button>
+      <button id="printBtn" disabled>Imprimir (9x14)</button>
       <button id="debugBtn">Debug</button>
     </div>
   </header>
@@ -63,22 +63,22 @@
   <h3>Preview — Montagem Stories</h3>
   <canvas id="storiesCanvas" width="3375" height="6000"></canvas>
 
-  <h3>Preview — Impressão (9x13)</h3>
-  <canvas id="printCanvas" width="5167" height="3322"></canvas>
+  <h3>Preview — Impressão (9x14)</h3>
+  <canvas id="printCanvas" width="3322" height="5167"></canvas>
 
   <div id="log"></div>
 
   <script>
     const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
 
-    // ✅ NOVAS COORDENADAS PARA STORIES (caralho (1).png - 3375x6000)
+    // ✅ CORREÇÃO: NOVAS COORDENADAS PARA STORIES (caralho (1).png - 3375x6000)
     const STORIES_COORDS = [
       { x: 155, y: 381,  w: 2225, h: 1341 },   // Área 1: (155,381) a (2380,1722)
       { x: 155, y: 1817, w: 2222, h: 1341 },   // Área 2: (155,1817) a (2377,3158)  
       { x: 155, y: 3262, w: 2222, h: 1338 }    // Área 3: (155,3262) a (2377,4600)
     ];
 
-    // ✅ NOVAS COORDENADAS PARA IMPRESSÃO (imprimir (1).png - 5167x3322)
+    // ✅ CORREÇÃO: NOVAS COORDENADAS PARA IMPRESSÃO 9x14 (3322x5167)
     const PRINT_COORDS = [
       { x: 191, y: 184,  w: 2160, h: 1305 },   // Área 1: (191,184) a (2351,1489)
       { x: 188, y: 1578, w: 2163, h: 1308 },   // Área 2: (188,1578) a (2351,2886)
@@ -162,18 +162,24 @@
       generateQrCode();
     });
 
-    // ✅ CORREÇÃO: Botão IMGBB envia 3 fotos soltas + montagem stories
+    // ✅ CORREÇÃO: DEBUG DETALHADO PARA IMGBB
     genVisualizadorQrBtn.addEventListener('click', () => {
       if (!currentSession || lastPhotos.length === 0) {
         log('❌ Nenhuma foto disponível para gerar visualizador');
         return;
       }
       
+      log('🔍 DEBUG IMGBB - Iniciando processo...');
+      log(`📊 Dados: ${lastPhotos.length} fotos, sessão: ${currentSession}`);
+      
       // Obter a montagem do stories (caralho (1).png com fotos)
       const storiesMontage = storiesCanvas.toDataURL('image/jpeg', 0.92);
+      log('✅ Montagem stories convertida para base64');
       
       log('🔄 Criando sessão do visualizador e enviando para IMGBB...');
       log(`📤 Enviando ${lastPhotos.length} fotos soltas + montagem stories`);
+      log(`🔑 Chave API: 6734e028b20f88d5795128d242f85582`);
+      
       genVisualizadorQrBtn.disabled = true;
       genVisualizadorQrBtn.textContent = 'Enviando...';
       
@@ -182,6 +188,8 @@
         photos: lastPhotos, // 3 fotos soltas
         storiesMontage: storiesMontage // Montagem do stories
       });
+      
+      log('📤 Evento create_viewer_session enviado para servidor');
     });
 
     function generateQrCode() {
@@ -214,7 +222,7 @@
       viewerInfoEl.style.display = 'block';
       
       log('👀 QR Code Visualizador gerado: ' + viewerId);
-      log('✅ Fotos soltas e montagem stories enviadas para IMGBB!');
+      log('✅✅✅ Fotos soltas e montagem stories enviadas para IMGBB com SUCESSO!');
     }
 
     socket.on('session_created', (id) => {
@@ -233,15 +241,17 @@
 
     socket.on('viewer_session_created', ({ viewerId }) => {
       currentViewerSession = viewerId;
+      log('🎉 Sessão do visualizador criada no servidor: ' + viewerId);
       generateVisualizadorQrCode(viewerId);
       genVisualizadorQrBtn.disabled = false;
       genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
     });
 
     socket.on('viewer_session_error', ({ error }) => {
-      log('❌ Erro ao criar visualizador: ' + error);
+      log('❌❌❌ ERRO ao criar visualizador: ' + error);
       genVisualizadorQrBtn.disabled = false;
       genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
+      log('🔧 Solução: Verificar chave API IMGBB e conexão com internet');
     });
 
     socket.on('photos_ready', (photos) => {
@@ -290,6 +300,8 @@
       log('- Sessão: ' + currentSession);
       log('- Socket conectado: ' + socket.connected);
       log('- Socket ID: ' + socket.id);
+      log('- Fotos recebidas: ' + lastPhotos.length);
+      log('- Sessão visualizador: ' + currentViewerSession);
       
       fetch(SERVER_URL + '/health')
         .then(r => r.json())
@@ -332,6 +344,7 @@
       const bg = new Image();
       bg.src = 'caralho (1).png'; // ✅ NOVO NOME
       bg.onload = () => {
+        log('✅ Background stories carregado: caralho (1).png');
         ctx.drawImage(bg, 0, 0, storiesCanvas.width, storiesCanvas.height);
         photos.forEach((p, i) => {
           const img = new Image();
@@ -340,6 +353,7 @@
             const c = STORIES_COORDS[i];
             if (!c) return;
             drawImageCover(ctx, img, c.x, c.y, c.w, c.h);
+            log(`✅ Foto ${i+1} posicionada no stories: ${c.x}, ${c.y}, ${c.w}x${c.h}`);
           };
           img.onerror = () => log('❌ Erro ao cargar imagem: ' + p.substring(0, 50));
         });
@@ -347,19 +361,22 @@
       bg.onerror = () => log('❌ Erro ao cargar background stories');
     }
 
-    // ✅ CORREÇÃO: Usar imprimir (1).png
+    // ✅ CORREÇÃO: Usar imprimir (1).png com proporção 9x14 (3322x5167)
     function drawPrint(photos){
       const ctx = printCanvas.getContext('2d');
       ctx.clearRect(0,0,printCanvas.width, printCanvas.height);
       const bg = new Image();
       bg.src = 'imprimir (1).png'; // ✅ NOVO NOME
       bg.onload = () => {
+        log('✅ Background print carregado: imprimir (1).png - 9x14');
         ctx.drawImage(bg, 0, 0, printCanvas.width, printCanvas.height);
         photos.forEach((p, i) => {
           const img = new Image(); img.src = p;
           img.onload = () => {
-            const c = PRINT_COORDS[i]; if (!c) return;
+            const c = PRINT_COORDS[i]; 
+            if (!c) return;
             drawImageCover(ctx, img, c.x, c.y, c.w, c.h);
+            log(`✅ Foto ${i+1} posicionada no print: ${c.x}, ${c.y}, ${c.w}x${c.h}`);
           };
           img.onerror = () => log('❌ Erro ao cargar imagem para print: ' + p.substring(0, 50));
         });
