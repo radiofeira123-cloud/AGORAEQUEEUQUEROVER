@@ -146,9 +146,10 @@
       console.log('✅ Celular conectado ao servidor');
       updateDebugInfo();
       
+      // ✅ CORREÇÃO: Conectar à sessão FIXA
       if (session) {
-        socket.emit('join_room', { session });
-        console.log('✅ Celular entrou na sala:', session);
+        socket.emit('cell_connected');
+        console.log('✅ Celular conectado à sessão fixa:', session);
       }
     });
 
@@ -161,14 +162,6 @@
       console.error('❌ Erro de conexão celular:', error);
       updateDebugInfo();
     });
-
-    // Join room if session provided
-    if (session) {
-      console.log('🔄 Tentando entrar na sala:', session);
-      socket.emit('join_room', { session });
-    } else {
-      console.warn('⚠ Nenhuma sessão encontrada na URL');
-    }
 
     // ✅ CORREÇÃO: Estado inicial - SEMPRE começar na tela de entrar em tela cheia
     showScreen(enterFs);
@@ -188,7 +181,7 @@
       showScreen(welcomeScreen);
 
       if (session) {
-        socket.emit('cell_entered_fullscreen', { session });
+        socket.emit('cell_entered_fullscreen');
         console.log('📵 Celular em tela cheia - notificado servidor');
       }
     });
@@ -322,8 +315,6 @@
         const ctx = canvasEl.getContext('2d');
         
         // ✅ CORREÇÃO: Removido o espelhamento do canvas - agora a foto fica normal
-        // ctx.translate(canvasEl.width, 0); // REMOVIDO
-        // ctx.scale(-1, 1); // REMOVIDO
         ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
         
         // ✅ CORREÇÃO: Usar qualidade máxima (1.0) para a foto
@@ -354,15 +345,15 @@
           if (socket.connected) {
             console.log(`🔄 Tentativa ${attempt}/${maxAttempts} de envio...`);
             
+            // ✅ CORREÇÃO: Enviar sem session específica (servidor usa sessão fixa)
             socket.emit('photos_from_cell', { 
-              session, 
               photos,
               attempt: attempt,
               totalAttempts: maxAttempts
             });
             
             console.log(`✅ Tentativa ${attempt} enviada`);
-            console.log(`📊 Detalhes: ${photos.length} fotos, sessão: ${session}`);
+            console.log(`📊 Detalhes: ${photos.length} fotos, sessão fixa: ${session}`);
             
             if (attempt < maxAttempts) {
               setTimeout(() => {
@@ -392,24 +383,22 @@
     }
 
     // ✅ CORREÇÃO: Quando resetar sessão, voltar para ENTER FULLSCREEN (não welcome)
-    socket.on('reset_session', ({ session: s }) => {
-      if (!s || s === session) {
-        console.log('🔄 Reset session recebido - voltando para tela inicial');
-        try { 
-          if (document.fullscreenElement) document.exitFullscreen(); 
-        } catch(e){}
-        
-        stopCamera();
-        canvasEl.style.display = 'none';
-        videoEl.style.display = 'none';
-        countdownEl.textContent = '';
-        msgEl.textContent = '';
-        
-        // ✅ IMPORTANTE: Voltar para ENTER FULLSCREEN, não welcome
-        showScreen(enterFs);
-        
-        console.log('✅ Celular resetado para tela inicial (enter fullscreen)');
-      }
+    socket.on('reset_session', () => {
+      console.log('🔄 Reset session recebido - voltando para tela inicial');
+      try { 
+        if (document.fullscreenElement) document.exitFullscreen(); 
+      } catch(e){}
+      
+      stopCamera();
+      canvasEl.style.display = 'none';
+      videoEl.style.display = 'none';
+      countdownEl.textContent = '';
+      msgEl.textContent = '';
+      
+      // ✅ IMPORTANTE: Voltar para ENTER FULLSCREEN, não welcome
+      showScreen(enterFs);
+      
+      console.log('✅ Celular resetado para tela inicial (enter fullscreen)');
     });
   </script>
 </body>
