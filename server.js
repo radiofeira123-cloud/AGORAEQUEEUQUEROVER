@@ -99,9 +99,9 @@ const io = new Server(server, {
   allowEIO3: true
 });
 
-// Sessões principais (para celular/operador)
-const sessions = {};
-// Sessões do visualizador (com data URLs e URLs IMGBB)
+// ✅ CORREÇÃO: Sessão FIXA para o celular (sempre a mesma)
+const FIXED_SESSION_ID = "cabine-fixa";
+// Sessões do visualizador (cada cliente tem sua própria)
 const viewerSessions = {};
 
 const IMGBB_API_KEY = "6734e028b20f88d5795128d242f85582";
@@ -151,23 +151,30 @@ async function uploadToImgbb(imageData) {
 io.on('connection', (socket) => {
   console.log('🔌 NOVA CONEXÃO - socket:', socket.id, 'origin:', socket.handshake.headers.origin);
 
-  // Operator: create a new session (para celular)
-  socket.on('create_session', () => {
-    const id = crypto.randomUUID();
-    sessions[id] = { photos: [] };
-    socket.emit('session_created', id);
-    console.log('🆕 NOVA SESSÃO CRIADA:', id);
+  // ✅ CORREÇÃO: Operador sempre usa a sessão FIXA
+  socket.on('operator_connected', () => {
+    socket.join(FIXED_SESSION_ID);
+    console.log(`🎮 OPERADOR conectado à sessão fixa: ${FIXED_SESSION_ID}`);
+    
+    // Notificar que a sessão está pronta
+    socket.emit('session_ready', { sessionId: FIXED_SESSION_ID });
   });
 
-  // ✅ CORREÇÃO: Evento create_viewer_session com tratamento melhorado
-  socket.on('create_viewer_session', async ({ session, photos, storiesMontage }) => {
+  // ✅ CORREÇÃO: Celular sempre usa a sessão FIXA
+  socket.on('cell_connected', () => {
+    socket.join(FIXED_SESSION_ID);
+    console.log(`📱 CELULAR conectado à sessão fixa: ${FIXED_SESSION_ID}`);
+  });
+
+  // ✅ CORREÇÃO: Criar visualizador para cada cliente (sessões separadas)
+  socket.on('create_viewer_session', async ({ photos, storiesMontage }) => {
     console.log(`\n🔄🔄🔄 CREATE_VIEWER_SESSION INICIADO 🔄🔄🔄`);
-    console.log(`📍 Sessão: ${session}`);
+    console.log(`📍 Sessão FIXA: ${FIXED_SESSION_ID}`);
     console.log(`📸 Quantidade de fotos: ${photos ? photos.length : 0}`);
     console.log(`🖼️ Stories Montage: ${storiesMontage ? 'Sim' : 'Não'}`);
     console.log(`🔌 Socket ID: ${socket.id}`);
 
-    if (!session || !photos || !Array.isArray(photos)) {
+    if (!photos || !Array.isArray(photos)) {
         console.error('❌❌❌ ERRO: Dados inválidos para create_viewer_session');
         socket.emit('viewer_session_error', { error: 'Dados inválidos' });
         return;
@@ -217,19 +224,19 @@ io.on('connection', (socket) => {
             }
         }
 
-        // Criar sessão do visualizador
+        // ✅ CORREÇÃO: Criar sessão do visualizador ÚNICA para este cliente
         const viewerId = crypto.randomUUID();
         viewerSessions[viewerId] = {
-            originalSession: session,
+            originalSession: FIXED_SESSION_ID,
             photos: photos,
             photosImgbb: uploadedUrls,
             storiesMontage: storiesMontage,
             storiesMontageImgbb: storiesUrl,
             createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 dias
         };
 
-        console.log(`🎯 Sessão do visualizador criada: ${viewerId}`);
+        console.log(`🎯 NOVA Sessão do visualizador criada: ${viewerId}`);
         console.log(`📊 Resumo: ${successCount}/${photos.length} fotos enviadas com sucesso`);
         
         socket.emit('viewer_session_created', { viewerId });
@@ -237,23 +244,6 @@ io.on('connection', (socket) => {
     } catch (error) {
         console.error('❌ Erro ao criar sessão do visualizador:', error);
         socket.emit('viewer_session_error', { error: error.message });
-    }
-  });
-
-  // Join room para sessão principal
-  socket.on('join_room', (data) => {
-    const session = (data && data.session) || data;
-    if (!session) {
-      console.warn('❌ join_room missing session');
-      return;
-    }
-    socket.join(session);
-    console.log(`🔗 ${socket.id} entrou na sala: ${session}`);
-    
-    // Se já existem fotos nesta sessão, enviar para o cliente
-    if (sessions[session] && sessions[session].photos && sessions[session].photos.length) {
-      socket.emit('photos_ready', sessions[session].photos);
-      console.log(`📸 Enviando ${sessions[session].photos.length} fotos existentes para ${socket.id}`);
     }
   });
 
@@ -273,71 +263,52 @@ io.on('connection', (socket) => {
         storiesMontage: viewerSessions[viewerId].storiesMontage,
         storiesMontageImgbb: viewerSessions[viewerId].storiesMontageImgbb
       });
+    } else {
+      console.log(`❌ Visualizador não encontrado: ${viewerId}`);
+      socket.emit('viewer_not_found', { viewerId });
     }
   });
 
   // celular -> server: photos_from_cell
-  socket.on('photos_from_cell', ({ session, photos, attempt }) => {
+  socket.on('photos_from_cell', ({ photos, attempt }) => {
     console.log(`\n📸📸📸 RECEBENDO FOTOS DO CELULAR 📸📸📸`);
-    console.log(`📍 Sessão: ${session}`);
+    console.log(`📍 Sessão FIXA: ${FIXED_SESSION_ID}`);
     console.log(`🖼️  Quantidade de fotos: ${photos ? photos.length : 'NENHUMA'}`);
     console.log(`🔄 Tentativa: ${attempt || 1}`);
     console.log(`🔌 Socket ID: ${socket.id}`);
 
-    if (!session) {
-      console.error('❌❌❌ ERRO CRÍTICO: photos_from_cell SEM SESSÃO');
-      return;
-    }
-    
     if (!photos || !Array.isArray(photos)) {
       console.error('❌❌❌ ERRO CRÍTICO: photos não é array válido');
       return;
     }
 
-    // Initialize session if not exists
-    if (!sessions[session]) {
-      sessions[session] = { photos: [] };
-      console.log(`🆕 NOVA SESSÃO CRIADA: ${session}`);
-    }
-
-    // Store photos
-    sessions[session].photos = photos.slice();
-    sessions[session].lastUpdated = new Date().toISOString();
+    console.log(`💾 ${photos.length} fotos recebidas na sessão fixa ${FIXED_SESSION_ID}`);
     
-    console.log(`💾 ${photos.length} fotos armazenadas para sessão ${session}`);
-    
-    // ENVIAR PARA OPERADOR
-    const room = io.sockets.adapter.rooms.get(session);
+    // ✅ CORREÇÃO: Enviar fotos para TODOS os operadores na sessão fixa
+    const room = io.sockets.adapter.rooms.get(FIXED_SESSION_ID);
     const clientCount = room ? room.size : 0;
     
-    console.log(`📤 ENVIANDO PARA ${clientCount} CLIENTES NA SALA ${session}`);
+    console.log(`📤 ENVIANDO PARA ${clientCount} CLIENTES NA SALA ${FIXED_SESSION_ID}`);
     
     if (clientCount > 0) {
-      io.to(session).emit('photos_ready', photos);
+      io.to(FIXED_SESSION_ID).emit('photos_ready', photos);
       console.log(`✅✅✅ FOTOS ENVIADAS COM SUCESSO PARA O OPERADOR`);
     } else {
-      console.error(`❌❌❌ NENHUM CLIENTE NA SALA ${session}`);
+      console.error(`❌❌❌ NENHUM OPERADOR NA SALA ${FIXED_SESSION_ID}`);
     }
   });
 
   // celular informs it entered fullscreen
-  socket.on('cell_entered_fullscreen', ({ session }) => {
-    if (!session) return;
-    io.to(session).emit('cell_entered_fullscreen', { session });
-    console.log(`📵 Celular entrou em tela cheia para sessão ${session}`);
+  socket.on('cell_entered_fullscreen', () => {
+    io.to(FIXED_SESSION_ID).emit('cell_entered_fullscreen');
+    console.log(`📵 Celular entrou em tela cheia na sessão fixa ${FIXED_SESSION_ID}`);
   });
 
-  // operator clicks Finalizar Sessão
-  socket.on('end_session', (session) => {
-    if (!session) return;
-    
-    // Clear stored photos but keep session
-    if (sessions[session]) {
-      sessions[session].photos = [];
-    }
-    
-    io.to(session).emit('reset_session', { session });
-    console.log(`🧹 Sessão finalizada: ${session}`);
+  // ✅ CORREÇÃO: operator clicks Finalizar Sessão - apenas reseta o celular
+  socket.on('end_session', () => {
+    // Apenas notificar o celular para resetar, sem afetar visualizadores
+    io.to(FIXED_SESSION_ID).emit('reset_session');
+    console.log(`🧹 Sessão finalizada - Celular resetado`);
   });
 
   socket.on('disconnect', (reason) => {
@@ -349,7 +320,7 @@ io.on('connection', (socket) => {
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
-    sessions: Object.keys(sessions).length,
+    fixedSession: FIXED_SESSION_ID,
     viewerSessions: Object.keys(viewerSessions).length,
     timestamp: new Date().toISOString()
   });
@@ -377,4 +348,5 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('🚀 Server listening on port', PORT);
   console.log('🔓 CORS totalmente liberado');
   console.log('📁 Servindo arquivos estáticos');
+  console.log(`📱 SESSÃO FIXA DO CELULAR: ${FIXED_SESSION_ID}`);
 });
