@@ -64,25 +64,27 @@
   <canvas id="storiesCanvas" width="3375" height="6000"></canvas>
 
   <h3>Preview — Impressão (9x13)</h3>
-  <canvas id="printCanvas" width="3322" height="4798"></canvas>
+  <canvas id="printCanvas" width="5167" height="3322"></canvas>
 
   <div id="log"></div>
 
   <script>
     const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
 
+    // ✅ NOVAS COORDENADAS PARA STORIES (caralho.png)
     const STORIES_COORDS = [
-      { x: 152, y: 572,  w: 2371, h: 1540 },
-      { x: 152, y: 2225, w: 2371, h: 1541 },
-      { x: 155, y: 3885, w: 2365, h: 1546 }
-    ];
-    const PRINT_COORDS = [
-      { x: 150, y: 150,  w: 2216, h: 1434 },
-      { x: 150, y: 1684, w: 2210, h: 1437 },
-      { x: 150, y: 3232, w: 2213, h: 1435 }
+      { x: 155, y: 381,  w: 2225, h: 1341 },   // Foto 1: (155,381) a (2380,1722)
+      { x: 155, y: 1817, w: 2222, h: 1341 },   // Foto 2: (155,1817) a (2377,3158)  
+      { x: 155, y: 3262, w: 2222, h: 1338 }    // Foto 3: (155,3262) a (2377,4600)
     ];
 
-    // Configuração Socket.IO com CORS corrigido
+    // ✅ NOVAS COORDENADAS PARA IMPRESSÃO (imprimir.png) - 5167x3322 pixels
+    const PRINT_COORDS = [
+      { x: 191, y: 184,  w: 2160, h: 1305 },   // Foto 1: (191,184) a (2351,1489)
+      { x: 188, y: 1578, w: 2163, h: 1308 },   // Foto 2: (188,1578) a (2351,2886)
+      { x: 191, y: 2970, w: 2160, h: 1305 }    // Foto 3: Aproximação para terceira foto
+    ];
+
     const socket = io(SERVER_URL, {
       transports: ['polling', 'websocket'],
       reconnection: true,
@@ -125,12 +127,10 @@
       }
     }
 
-    // Eventos de conexão Socket.IO
     socket.on('connect', () => {
       log('✅ CONECTADO ao servidor: ' + SERVER_URL);
       updateConnectionStatus(true);
       
-      // Se já temos uma sessão, rejoinar a sala
       if (currentSession) {
         socket.emit('join_room', { session: currentSession });
         log('Rejoined room: ' + currentSession);
@@ -148,13 +148,11 @@
       console.error('Socket.IO error:', error);
     });
 
-    // Criar sessão automaticamente ao carregar a página
     window.addEventListener('DOMContentLoaded', () => {
       log('🔄 Iniciando criação automática de sessão...');
       socket.emit('create_session');
     });
 
-    // Gera QR Code do Celular
     genQrBtn.addEventListener('click', () => {
       if (!currentSession) {
         log('⚠️ Aguarde, criando sessão...');
@@ -164,24 +162,25 @@
       generateQrCode();
     });
 
-    // Gera QR Code do Visualizador + Upload IMGBB
+    // ✅ CORREÇÃO: Botão IMGBB agora envia fotos soltas + montagem stories
     genVisualizadorQrBtn.addEventListener('click', () => {
       if (!currentSession || lastPhotos.length === 0) {
         log('❌ Nenhuma foto disponível para gerar visualizador');
         return;
       }
       
-      // Obter a moldura do stories
+      // Obter a montagem do stories (caralho.png com fotos)
       const storiesMontage = storiesCanvas.toDataURL('image/jpeg', 0.92);
       
       log('🔄 Criando sessão do visualizador e enviando para IMGBB...');
+      log(`📤 Enviando ${lastPhotos.length} fotos soltas + montagem stories`);
       genVisualizadorQrBtn.disabled = true;
       genVisualizadorQrBtn.textContent = 'Enviando...';
       
       socket.emit('create_viewer_session', { 
         session: currentSession, 
-        photos: lastPhotos,
-        storiesMontage: storiesMontage
+        photos: lastPhotos, // 3 fotos soltas
+        storiesMontage: storiesMontage // Montagem do stories
       });
     });
 
@@ -215,10 +214,9 @@
       viewerInfoEl.style.display = 'block';
       
       log('👀 QR Code Visualizador gerado: ' + viewerId);
-      log('✅ Fotos e moldura enviadas para IMGBB!');
+      log('✅ Fotos soltas e montagem stories enviadas para IMGBB!');
     }
 
-    // Sessão criada
     socket.on('session_created', (id) => {
       currentSession = id;
       sessionIdEl.textContent = id;
@@ -229,12 +227,10 @@
       genQrBtn.disabled = false;
       finalizarBtn.disabled = false;
       
-      // Entrar na sala
       socket.emit('join_room', { session: id });
       log('Entrou na sala: ' + id);
     });
 
-    // Sessão do visualizador criada
     socket.on('viewer_session_created', ({ viewerId }) => {
       currentViewerSession = viewerId;
       generateVisualizadorQrCode(viewerId);
@@ -242,14 +238,12 @@
       genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
     });
 
-    // Erro no visualizador
     socket.on('viewer_session_error', ({ error }) => {
       log('❌ Erro ao criar visualizador: ' + error);
       genVisualizadorQrBtn.disabled = false;
       genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
     });
 
-    // Fotos recebidas do celular
     socket.on('photos_ready', (photos) => {
       log(`📸 FOTOS RECEBIDAS: ${photos.length} fotos`);
       
@@ -268,34 +262,35 @@
       log('✅ Fotos renderizadas com sucesso');
     });
 
-    // Finalizar sessão
     finalizarBtn.addEventListener('click', () => {
       if (!currentSession) return alert('Nenhuma sessão ativa.');
       
       socket.emit('end_session', currentSession);
       
-      // Limpar TUDO localmente
       thumbsEl.innerHTML = '';
       lastPhotos = [];
       genVisualizadorQrBtn.disabled = true;
       printBtn.disabled = true;
       
-      // Limpar visualizador anterior
       qrcodeVisualizadorEl.innerHTML = '';
       viewerInfoEl.style.display = 'none';
       currentViewerSession = null;
       
+      const storiesCtx = storiesCanvas.getContext('2d');
+      storiesCtx.clearRect(0, 0, storiesCanvas.width, storiesCanvas.height);
+      
+      const printCtx = printCanvas.getContext('2d');
+      printCtx.clearRect(0, 0, printCanvas.width, printCanvas.height);
+      
       log('🧹 Sessão finalizada - Próxima sessão com MESMA sessão: ' + currentSession);
     });
 
-    // Debug
     debugBtn.addEventListener('click', () => {
       log('🐛 DEBUG - Estado atual:');
       log('- Sessão: ' + currentSession);
       log('- Socket conectado: ' + socket.connected);
       log('- Socket ID: ' + socket.id);
       
-      // Testar health do servidor
       fetch(SERVER_URL + '/health')
         .then(r => r.json())
         .then(data => {
