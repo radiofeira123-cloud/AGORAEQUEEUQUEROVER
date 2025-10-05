@@ -314,8 +314,15 @@
         canvasEl.height = videoEl.videoHeight;
         const ctx = canvasEl.getContext('2d');
         
-        // ✅ CORREÇÃO: Removido o espelhamento do canvas - agora a foto fica normal
+        // ✅ CORREÇÃO CRÍTICA: CORRIGIR FOTOS INVERTIDAS
+        // O vídeo está espelhado (transform: scaleX(-1)), mas queremos a foto normal
+        // Para isso, vamos desenhar o vídeo normal (sem espelhamento) no canvas
+        ctx.save();
+        // Aplicar o espelhamento para compensar o espelhamento do CSS do vídeo
+        ctx.translate(canvasEl.width, 0);
+        ctx.scale(-1, 1);
         ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+        ctx.restore();
         
         // ✅ CORREÇÃO: Usar qualidade máxima (1.0) para a foto
         const data = canvasEl.toDataURL('image/jpeg', 1.0);
@@ -382,12 +389,9 @@
       }
     }
 
-    // ✅ CORREÇÃO: Quando resetar sessão, voltar para ENTER FULLSCREEN (não welcome)
+    // ✅ CORREÇÃO CRÍTICA: Quando resetar sessão, voltar para WELCOME SCREEN (não enterFs)
     socket.on('reset_session', () => {
-      console.log('🔄 Reset session recebido - voltando para tela inicial');
-      try { 
-        if (document.fullscreenElement) document.exitFullscreen(); 
-      } catch(e){}
+      console.log('🔄 Reset session recebido - voltando para tela de welcome');
       
       stopCamera();
       canvasEl.style.display = 'none';
@@ -395,10 +399,11 @@
       countdownEl.textContent = '';
       msgEl.textContent = '';
       
-      // ✅ IMPORTANTE: Voltar para ENTER FULLSCREEN, não welcome
-      showScreen(enterFs);
+      // ✅ CORREÇÃO IMPORTANTE: Voltar para WELCOME SCREEN, não enterFs
+      // E NÃO sair da tela cheia!
+      showScreen(welcomeScreen);
       
-      console.log('✅ Celular resetado para tela inicial (enter fullscreen)');
+      console.log('✅ Celular resetado para tela de welcome (mantendo tela cheia)');
     });
   </script>
 </body>
