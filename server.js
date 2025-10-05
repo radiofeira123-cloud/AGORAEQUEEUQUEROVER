@@ -80,7 +80,7 @@ app.get('/clack.mp3', (req, res) => {
 
 const server = http.createServer(app);
 
-// Socket.IO com CORS
+// ✅ CORREÇÃO: Socket.IO com configurações mais robustas
 const io = new Server(server, {
   cors: {
     origin: [
@@ -93,9 +93,11 @@ const io = new Server(server, {
     allowedHeaders: ["*"],
     credentials: true
   },
-  transports: ['polling', 'websocket'],
-  pingTimeout: 60000,
-  pingInterval: 25000,
+  transports: ['websocket', 'polling'], // WebSocket primeiro
+  pingTimeout: 30000, // 30 segundos
+  pingInterval: 10000, // 10 segundos
+  connectTimeout: 30000, // 30 segundos
+  maxHttpBufferSize: 1e8, // 100MB
   allowEIO3: true
 });
 
@@ -106,52 +108,102 @@ const viewerSessions = {};
 
 const IMGBB_API_KEY = "6734e028b20f88d5795128d242f85582";
 
-// ✅ CORREÇÃO: Função de upload IMGBB melhorada
-async function uploadToImgbb(imageData) {
-    try {
-        console.log(`📤 Iniciando upload para IMGBB...`);
-        
-        // Verificar se a imagem é muito grande
-        if (imageData.length > 5000000) {
-            console.warn('⚠️ Imagem muito grande, pode causar problemas');
-        }
-        
-        const base64Data = imageData.split(',')[1];
-        
-        const formData = new URLSearchParams();
-        formData.append('key', IMGBB_API_KEY);
-        formData.append('image', base64Data);
+// ✅ CORREÇÃO MELHORADA: Função de upload IMGBB com timeout e retry
+async function uploadToImgbb(imageData, retries = 3) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            console.log(`📤 Tentativa ${attempt}/${retries} - Iniciando upload para IMGBB...`);
+            
+            // Verificar se a imagem é muito grande
+            if (imageData.length > 2000000) { // 2MB
+                console.warn('⚠️ Imagem muito grande, otimizando...');
+                // Se for muito grande, vamos otimizar mais
+                const optimized = await optimizeImageBase64(imageData);
+                imageData = optimized;
+            }
+            
+            const base64Data = imageData.split(',')[1];
+            
+            const formData = new URLSearchParams();
+            formData.append('key', IMGBB_API_KEY);
+            formData.append('image', base64Data);
 
-        console.log(`📊 Tamanho base64: ${Math.round(base64Data.length/1024)}KB`);
-        
-        const response = await fetch('https://api.imgbb.com/1/upload', {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            console.log(`📊 Tamanho base64: ${Math.round(base64Data.length/1024)}KB`);
+            
+            // ✅ CORREÇÃO: Usar AbortController para timeout
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000); // 15 segundos
+            
+            const response = await fetch('https://api.imgbb.com/1/upload', {
+                method: 'POST',
+                body: formData,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeout);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log(`✅ Upload IMGBB bem-sucedido: ${data.data.url}`);
+                return data.data.url;
+            } else {
+                console.error(`❌ Upload IMGBB falhou: ${data.error?.message || 'Erro desconhecido'}`);
+                if (attempt < retries) {
+                    await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Backoff exponencial
+                    continue;
+                }
+                return null;
+            }
+        } catch (error) {
+            console.error(`❌ Erro no upload IMGBB (tentativa ${attempt}):`, error.message);
+            if (attempt < retries) {
+                console.log(`🔄 Tentando novamente em ${2 * attempt} segundos...`);
+                await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+            } else {
+                return null;
+            }
         }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            console.log(`✅ Upload IMGBB bem-sucedido: ${data.data.url}`);
-            return data.data.url;
-        } else {
-            console.error(`❌ Upload IMGBB falhou: ${data.error?.message || 'Erro desconhecido'}`);
-            return null;
-        }
-    } catch (error) {
-        console.error('❌ Erro no upload IMGBB:', error.message);
-        return null;
     }
+}
+
+// ✅ NOVA FUNÇÃO: Otimizar imagem base64
+function optimizeImageBase64(dataUrl) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.src = dataUrl;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Reduzir para no máximo 1200px na largura
+            let width = img.width;
+            let height = img.height;
+            const maxWidth = 1200;
+            
+            if (width > maxWidth) {
+                height = (height * maxWidth) / width;
+                width = maxWidth;
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+        };
+        img.onerror = () => resolve(dataUrl);
+    });
 }
 
 io.on('connection', (socket) => {
   console.log('🔌 NOVA CONEXÃO - socket:', socket.id, 'origin:', socket.handshake.headers.origin);
 
-  // ✅ CORREÇÃO: Operador sempre usa a sessão FIXA
+  // Operator: create a new session (para celular)
   socket.on('operator_connected', () => {
     socket.join(FIXED_SESSION_ID);
     console.log(`🎮 OPERADOR conectado à sessão fixa: ${FIXED_SESSION_ID}`);
@@ -160,13 +212,13 @@ io.on('connection', (socket) => {
     socket.emit('session_ready', { sessionId: FIXED_SESSION_ID });
   });
 
-  // ✅ CORREÇÃO: Celular sempre usa a sessão FIXA
+  // Celular sempre usa a sessão FIXA
   socket.on('cell_connected', () => {
     socket.join(FIXED_SESSION_ID);
     console.log(`📱 CELULAR conectado à sessão fixa: ${FIXED_SESSION_ID}`);
   });
 
-  // ✅ CORREÇÃO: Criar visualizador para cada cliente (sessões separadas)
+  // ✅ CORREÇÃO MELHORADA: create_viewer_session com upload mais robusto
   socket.on('create_viewer_session', async ({ photos, storiesMontage }) => {
     console.log(`\n🔄🔄🔄 CREATE_VIEWER_SESSION INICIADO 🔄🔄🔄`);
     console.log(`📍 Sessão FIXA: ${FIXED_SESSION_ID}`);
@@ -190,22 +242,22 @@ io.on('connection', (socket) => {
         for (let i = 0; i < photos.length; i++) {
             console.log(`📤 Enviando foto ${i+1} para IMGBB...`);
             try {
-                const imgbbUrl = await uploadToImgbb(photos[i]);
+                const imgbbUrl = await uploadToImgbb(photos[i], 2); // 2 tentativas
                 if (imgbbUrl) {
                     uploadedUrls.push(imgbbUrl);
                     successCount++;
                     console.log(`✅ Foto ${i+1} enviada: ${imgbbUrl}`);
                 } else {
                     console.log(`❌ Falha no upload da foto ${i+1}`);
-                    uploadedUrls.push(null);
+                    uploadedUrls.push(photos[i]); // Fallback para data URL
                 }
             } catch (error) {
                 console.error(`❌ Erro no upload da foto ${i+1}:`, error.message);
-                uploadedUrls.push(null);
+                uploadedUrls.push(photos[i]); // Fallback para data URL
             }
             
-            // Pequena pausa entre uploads
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Pequena pausa entre uploads para não sobrecarregar
+            await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
         // Fazer upload da moldura do stories para IMGBB
@@ -213,18 +265,20 @@ io.on('connection', (socket) => {
         if (storiesMontage) {
             console.log('📤 Enviando moldura do stories para IMGBB...');
             try {
-                storiesUrl = await uploadToImgbb(storiesMontage);
+                storiesUrl = await uploadToImgbb(storiesMontage, 2);
                 if (storiesUrl) {
                     console.log(`✅ Moldura stories enviada: ${storiesUrl}`);
                 } else {
                     console.log('❌ Falha no upload da moldura do stories');
+                    storiesUrl = storiesMontage; // Fallback
                 }
             } catch (error) {
                 console.error('❌ Erro no upload da moldura:', error.message);
+                storiesUrl = storiesMontage; // Fallback
             }
         }
 
-        // ✅ CORREÇÃO: Criar sessão do visualizador ÚNICA para este cliente
+        // Criar sessão do visualizador
         const viewerId = crypto.randomUUID();
         viewerSessions[viewerId] = {
             originalSession: FIXED_SESSION_ID,
@@ -236,8 +290,8 @@ io.on('connection', (socket) => {
             expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 dias
         };
 
-        console.log(`🎯 NOVA Sessão do visualizador criada: ${viewerId}`);
-        console.log(`📊 Resumo: ${successCount}/${photos.length} fotos enviadas com sucesso`);
+        console.log(`🎯 Sessão do visualizador criada: ${viewerId}`);
+        console.log(`📊 Resumo: ${successCount}/${photos.length} fotos enviadas com sucesso para IMGBB`);
         
         socket.emit('viewer_session_created', { viewerId });
 
@@ -284,7 +338,7 @@ io.on('connection', (socket) => {
 
     console.log(`💾 ${photos.length} fotos recebidas na sessão fixa ${FIXED_SESSION_ID}`);
     
-    // ✅ CORREÇÃO: Enviar fotos para TODOS os operadores na sessão fixa
+    // Enviar fotos para TODOS os operadores na sessão fixa
     const room = io.sockets.adapter.rooms.get(FIXED_SESSION_ID);
     const clientCount = room ? room.size : 0;
     
@@ -304,7 +358,7 @@ io.on('connection', (socket) => {
     console.log(`📵 Celular entrou em tela cheia na sessão fixa ${FIXED_SESSION_ID}`);
   });
 
-  // ✅ CORREÇÃO: operator clicks Finalizar Sessão - apenas reseta o celular
+  // operator clicks Finalizar Sessão - apenas reseta o celular
   socket.on('end_session', () => {
     // Apenas notificar o celular para resetar, sem afetar visualizadores
     io.to(FIXED_SESSION_ID).emit('reset_session');
