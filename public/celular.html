@@ -41,36 +41,21 @@
     
     #debugInfo {position:fixed;bottom:10px;left:10px;font-size:10px;color:#888;background:rgba(0,0,0,0.7);padding:4px;border-radius:4px;z-index:1000}
     
-    /* ANIMAÇÕES ADICIONADAS */
+    /* ANIMAÇÕES ADICIONADAS - SEM ANIMAÇÃO PARA A TELA DE ENTRAR EM TELA CHEIA */
     
-    /* Animação de entrada para as telas */
+    /* Animação de entrada para as telas (exceto enterFs) */
     @keyframes screenSlideIn {
       0% { transform: translateY(50px); opacity: 0; }
       100% { transform: translateY(0); opacity: 1; }
     }
     
-    @keyframes screenFadeIn {
-      0% { opacity: 0; }
-      100% { opacity: 1; }
-    }
-    
-    @keyframes screenZoomIn {
-      0% { transform: scale(0.8); opacity: 0; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-    
-    /* Animação de saída para as telas */
+    /* Animação de saída para as telas (exceto enterFs) */
     @keyframes screenSlideOut {
       0% { transform: translateY(0); opacity: 1; }
       100% { transform: translateY(-50px); opacity: 0; }
     }
     
-    @keyframes screenFadeOut {
-      0% { opacity: 1; }
-      100% { opacity: 0; }
-    }
-    
-    /* Classes de animação para as telas */
+    /* Classes de animação para as telas (exceto enterFs) */
     .screen-animate-in {
       animation: screenSlideIn 0.5s ease-out forwards;
     }
@@ -144,7 +129,7 @@
   </style>
 </head>
 <body>
-  <!-- ENTER FULLSCREEN - APENAS NA PRIMEIRA VEZ -->
+  <!-- ENTER FULLSCREEN - APENAS NA PRIMEIRA VEZ - SEM ANIMAÇÕES -->
   <div id="enterFs" class="screen visible" style="background:linear-gradient(135deg,#001e3c,#0b84ff)">
     <div style="text-align:center;background:rgba(0,0,0,0.3);padding:20px;border-radius:15px;backdrop-filter:blur(10px);width:95%;max-width:400px">
       <img src="logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
@@ -219,18 +204,26 @@
     let stream = null;
     let photos = [];
 
-    // Controle de estado das telas com animações
+    // Controle de estado das telas com animações (exceto para enterFs)
     function showScreen(screenElement) {
-      // Esconde todas as telas com animação
+      // Esconde todas as telas com animação (exceto enterFs)
       [enterFs, welcomeScreen, thankScreen].forEach(screen => {
         if (screen && !screen.classList.contains('hidden')) {
-          screen.classList.add('screen-animate-out');
-          setTimeout(() => {
-            screen.classList.remove('screen-animate-out');
+          // Se não for a tela enterFs, aplicar animação de saída
+          if (screen.id !== 'enterFs') {
+            screen.classList.add('screen-animate-out');
+            setTimeout(() => {
+              screen.classList.remove('screen-animate-out');
+              screen.classList.add('hidden');
+              screen.classList.remove('visible');
+              screen.style.display = 'none';
+            }, 500);
+          } else {
+            // Para enterFs, apenas esconder sem animação
             screen.classList.add('hidden');
             screen.classList.remove('visible');
             screen.style.display = 'none';
-          }, 500);
+          }
         }
       });
       
@@ -238,16 +231,20 @@
       videoEl.style.display = 'none';
       canvasEl.style.display = 'none';
       
-      // Mostra a tela desejada com animação
+      // Mostra a tela desejada com animação (exceto enterFs)
       if (screenElement) {
         screenElement.classList.remove('hidden');
         screenElement.classList.add('visible');
         screenElement.style.display = 'flex';
-        screenElement.classList.add('screen-animate-in');
         
-        setTimeout(() => {
-          screenElement.classList.remove('screen-animate-in');
-        }, 500);
+        // Se não for a tela enterFs, aplicar animação de entrada
+        if (screenElement.id !== 'enterFs') {
+          screenElement.classList.add('screen-animate-in');
+          
+          setTimeout(() => {
+            screenElement.classList.remove('screen-animate-in');
+          }, 500);
+        }
         
         // Adicionar animação específica para a tela de boas-vindas
         if (screenElement.id === 'welcomeScreen') {
