@@ -24,6 +24,11 @@
     .viewer-info{background:#333;padding:10px;border-radius:5px;margin:10px 0}
     .viewer-history{background:#222;padding:10px;border-radius:5px;margin:10px 0;max-height:200px;overflow-y:auto}
     .viewer-item{margin:5px 0;padding:5px;background:#333;border-radius:3px}
+    
+    /* Estilos para o boomerang */
+    .boomerang-container {margin:20px 0;padding:15px;background:#222;border-radius:8px}
+    #boomerangVideo {max-width:100%;border-radius:6px;margin-top:10px}
+    .boomerang-status {margin-top:8px;font-style:italic}
   </style>
 </head>
 <body>
@@ -67,6 +72,15 @@
         <div class="viewer-item">Nenhum visualizador gerado ainda</div>
       </div>
     </div>
+
+    <!-- Seção do Boomerang -->
+    <div class="qrcode-section boomerang-container">
+      <h3>🎥 Boomerang</h3>
+      <video id="boomerangVideo" controls autoplay loop muted style="display:none;">
+        Seu navegador não suporta vídeos.
+      </video>
+      <p id="boomerangStatus" class="boomerang-status">O boomerang será gerado automaticamente quando as fotos chegarem...</p>
+    </div>
   </div>
 
   <h3>Fotos recebidas</h3>
@@ -96,6 +110,14 @@
       { x: 188, y: 1578, w: 2163, h: 1308 },   // Área 2: (188,1578) a (2351,2886)
       { x: 191, y: 2970, w: 2163, h: 1308 }    // Área 3: Estimativa para terceira foto
     ];
+
+    // COORDENADAS PARA BOOMERANG (video.png - 3375x6000)
+    const BOOMERANG_COORDS = {
+      x: 179, 
+      y: 1648, 
+      width: 3214 - 179, 
+      height: 3477 - 1648
+    };
 
     // ✅ CORREÇÃO: Função de otimização para IMGBB apenas (não limita resolução original)
     function optimizeImageForImgbb(dataUrl, quality = 0.9) {
@@ -144,6 +166,8 @@
     const thumbsEl = el('thumbs'), storiesCanvas = el('storiesCanvas'), printCanvas = el('printCanvas');
     const logEl = el('log');
     const connectionStatusEl = el('connectionStatus');
+    const boomerangVideo = el('boomerangVideo');
+    const boomerangStatus = el('boomerangStatus');
 
     const genQrBtn = el('genQr'), finalizarBtn = el('finalizarSessao');
     const genVisualizadorQrBtn = el('genVisualizadorQr'), printBtn = el('printBtn');
@@ -154,6 +178,7 @@
     let currentViewerSession = null;
     let lastPhotos = [];
     let viewerHistory = [];
+    let boomerangUrl = null;
 
     function log(msg){
       const timestamp = new Date().toLocaleTimeString();
@@ -224,18 +249,18 @@
       generateQrCode();
     });
 
-    // ✅ CORREÇÃO: Botão IMGBB mantendo RESOLUÇÃO MÁXIMA
+    // ✅ MODIFICAÇÃO: Botão IMGBB agora também gera boomerang
     genVisualizadorQrBtn.addEventListener('click', async () => {
       if (lastPhotos.length === 0) {
         log('❌ Nenhuma foto disponível para gerar visualizador');
         return;
       }
       
-      log('🔍 INICIANDO PROCESSO IMGBB...');
+      log('🔍 INICIANDO PROCESSO IMGBB + BOOMERANG...');
       log(`📊 Dados: ${lastPhotos.length} fotos, sessão: ${currentSession}`);
       
       try {
-        // ✅ CORREÇÃO: OTIMIZAR mantendo RESOLUÇÃO MÁXIMA 3264x1836
+        // ✅ CORREÇÃO: OTIMIZAR mantendo RESOLUÇÃO MÁXIMA
         log('🔄 Otimizando fotos para IMGBB (mantendo resolução máxima)...');
         const optimizedPhotos = [];
         
@@ -250,8 +275,23 @@
         const optimizedStoriesMontage = await optimizeImageForImgbb(storiesMontage, 0.9);
         log(`✅ Montagem stories otimizada: ${Math.round(optimizedStoriesMontage.length/1024)}KB`);
         
+        // 🎥 GERAR BOOMERANG
+        log('🎥 Gerando boomerang...');
+        const boomerangBlob = await generateBoomerang(lastPhotos);
+        const boomerangDataUrl = URL.createObjectURL(boomerangBlob);
+        
+        // Mostrar boomerang no player
+        boomerangVideo.src = boomerangDataUrl;
+        boomerangVideo.style.display = 'block';
+        boomerangStatus.textContent = '✅ Boomerang gerado com sucesso!';
+        log('✅ Boomerang gerado e pronto para visualização');
+        
+        // Converter boomerang para base64 para envio
+        const boomerangBase64 = await blobToBase64(boomerangBlob);
+        const optimizedBoomerang = await optimizeImageForImgbb(boomerangBase64, 0.8);
+        
         log('🔄 Criando NOVA sessão do visualizador...');
-        log(`📤 Enviando ${optimizedPhotos.length} fotos em ALTA RESOLUÇÃO + montagem stories`);
+        log(`📤 Enviando ${optimizedPhotos.length} fotos em ALTA RESOLUÇÃO + montagem stories + boomerang`);
         
         genVisualizadorQrBtn.disabled = true;
         genVisualizadorQrBtn.textContent = 'Enviando...';
@@ -264,7 +304,8 @@
         const sendPromise = new Promise((resolve, reject) => {
           socket.emit('create_viewer_session', { 
               photos: optimizedPhotos,
-              storiesMontage: optimizedStoriesMontage
+              storiesMontage: optimizedStoriesMontage,
+              boomerang: optimizedBoomerang
           });
           
           // Esperar pela resposta
@@ -334,6 +375,111 @@
       }
     });
 
+    // FUNÇÃO PARA GERAR BOOMERANG
+    async function generateBoomerang(photos) {
+      return new Promise(async (resolve, reject) => {
+        try {
+          // Carregar a moldura do boomerang
+          const frame = new Image();
+          frame.src = 'video.png';
+          
+          await new Promise((resolve, reject) => {
+            frame.onload = resolve;
+            frame.onerror = reject;
+          });
+          
+          // Criar canvas para processamento
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = 3375;
+          canvas.height = 6000;
+          
+          // Configurações do vídeo
+          const fps = 10;
+          const durationPerPhoto = 1; // segundos
+          const totalFrames = fps * durationPerPhoto * photos.length * 2; // Ida e volta
+          
+          // Criar stream do canvas
+          const stream = canvas.captureStream(fps);
+          const mediaRecorder = new MediaRecorder(stream, { 
+            mimeType: 'video/webm;codecs=vp9',
+            videoBitsPerSecond: 2500000 // 2.5 Mbps
+          });
+          
+          let chunks = [];
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+              chunks.push(e.data);
+            }
+          };
+          
+          mediaRecorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            resolve(blob);
+          };
+          
+          let currentFrame = 0;
+          
+          // Função para desenhar um frame específico
+          const drawFrame = async (frameIndex) => {
+            // Calcular qual foto mostrar (sequência: 0,1,2,1,0,1,2...)
+            const sequenceLength = photos.length * 2 - 2;
+            let photoIndex;
+            
+            if (frameIndex < photos.length) {
+              photoIndex = frameIndex; // Ida: 0,1,2
+            } else {
+              photoIndex = sequenceLength - frameIndex; // Volta: 1,0
+            }
+            
+            // Desenhar moldura
+            ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+            
+            // Carregar e desenhar a foto na área especificada
+            const photo = new Image();
+            await new Promise((resolve) => {
+              photo.onload = resolve;
+              photo.src = photos[photoIndex];
+            });
+            
+            // Desenhar a foto na área da moldura
+            ctx.drawImage(photo, BOOMERANG_COORDS.x, BOOMERANG_COORDS.y, 
+                         BOOMERANG_COORDS.width, BOOMERANG_COORDS.height);
+          };
+          
+          // Iniciar gravação
+          mediaRecorder.start();
+          
+          // Função recursiva para gravar frames
+          const recordFrame = async () => {
+            if (currentFrame < totalFrames) {
+              await drawFrame(currentFrame % (photos.length * 2 - 2));
+              currentFrame++;
+              setTimeout(recordFrame, 1000 / fps);
+            } else {
+              mediaRecorder.stop();
+            }
+          };
+          
+          // Iniciar gravação dos frames
+          recordFrame();
+          
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }
+
+    // FUNÇÃO AUXILIAR: Converter Blob para Base64
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
     function generateQrCode() {
       qrcodeEl.innerHTML = '';
       const url = `${SERVER_URL}/celular.html?session=${encodeURIComponent(currentSession)}`;
@@ -374,7 +520,7 @@
       updateViewerHistory();
       
       log('👀 NOVO QR Code Visualizador gerado: ' + viewerId);
-      log('✅✅✅ Fotos em ALTA RESOLUÇÃO enviadas para IMGBB com SUCESSO!');
+      log('✅✅✅ Fotos em ALTA RESOLUÇÃO + BOOMERANG enviados para IMGBB com SUCESSO!');
       
       // Restaurar botão
       genVisualizadorQrBtn.disabled = false;
@@ -450,6 +596,11 @@
       qrcodeVisualizadorEl.innerHTML = '';
       viewerInfoEl.style.display = 'none';
       currentViewerSession = null;
+      
+      // Limpar boomerang
+      boomerangVideo.style.display = 'none';
+      boomerangVideo.src = '';
+      boomerangStatus.textContent = 'O boomerang será gerado automaticamente quando as fotos chegarem...';
       
       const storiesCtx = storiesCanvas.getContext('2d');
       storiesCtx.clearRect(0, 0, storiesCanvas.width, storiesCanvas.height);
