@@ -489,17 +489,19 @@
           if (t <= 2) {
             countdownEl.textContent = 'SORRIA!';
             countdownEl.style.color = '#ffd600';
-            if (t === 2) {
-              try { 
-                clack.currentTime = 0; 
-                await clack.play(); 
-              } catch(e){ 
-                console.log('🔇 Audio clack não pode ser reproduzido');
-              }
-            }
           } else {
             countdownEl.textContent = String(t);
             countdownEl.style.color = '#fff';
+          }
+
+          // Som 2 segundos antes da foto
+          if (t === 3) {
+            try { 
+              clack.currentTime = 0; 
+              await clack.play(); 
+            } catch(e){ 
+              console.log('🔇 Audio clack não pode ser reproduzido');
+            }
           }
           await sleep(1000);
         }
