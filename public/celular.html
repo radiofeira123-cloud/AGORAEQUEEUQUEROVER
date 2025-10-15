@@ -506,21 +506,20 @@
         
         countdownEl.textContent = '';
         
-        // Som no momento exato da captura
-        try { 
-          clack.currentTime = 0; 
-          await clack.play(); 
-        } catch(e){ 
-          console.log('🔇 Audio clack não pode ser reproduzido');
-        }
-
         // Capturar foto com a resolução REAL da câmera (MÁXIMA)
         canvasEl.width = videoEl.videoWidth;
         canvasEl.height = videoEl.videoHeight;
         const ctx = canvasEl.getContext('2d');
         
         // ✅ CORREÇÃO: Desenhar a foto ESPELHADA para corrigir a visualização
-        ctx.translate(canvasEl.width, 0);
+        try {
+            clack.currentTime = 0;
+            await clack.play();
+          } catch(e) {
+            console.log('🔇 Audio clack não pode ser reproduzido');
+          }
+
+ctx.translate(canvasEl.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
         
