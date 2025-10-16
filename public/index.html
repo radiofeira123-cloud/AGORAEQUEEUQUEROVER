@@ -83,18 +83,18 @@
   <script>
     const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
 
-    // ✅ COORDENADAS CORRIGIDAS PARA STORIES (caralho (1).png - 3375x6000px)
+    // COORDENADAS PARA STORIES (caralho (1).png - 3375x6000)
     const STORIES_COORDS = [
-      { x: 152, y: 379,  w: 2228, h: 1350 },   // Área 1: (152,379) a (2380,1729)
-      { x: 152, y: 1815, w: 2228, h: 1349 },   // Área 2: (152,1815) a (2380,3164)  
-      { x: 149, y: 3254, w: 2231, h: 1353 }    // Área 3: (149,3254) a (2380,4607)
+      { x: 155, y: 381,  w: 2225, h: 1341 },   // Área 1: (155,381) a (2380,1722)
+      { x: 155, y: 1817, w: 2225, h: 1341 },   // Área 2: (155,1817) a (2377,3158)  
+      { x: 155, y: 3262, w: 2225, h: 1341 }    // Área 3: (155,3262) a (2377,4600)
     ];
 
-    // ✅ COORDENADAS CORRIGIDAS PARA IMPRESSÃO 9x14 (imprimir (1).png - 3322x5167px)
+    // COORDENADAS PARA IMPRESSÃO 9x14 (3322x5167)
     const PRINT_COORDS = [
-      { x: 188, y: 182,  w: 2166, h: 1308 },   // Área 1: (188,182) a (2354,1490)
-      { x: 185, y: 1578, w: 2169, h: 1311 },   // Área 2: (185,1578) a (2354,2889)
-      { x: 185, y: 2977, w: 2172, h: 1314 }    // Área 3: (185,2977) a (2357,4291)
+      { x: 191, y: 184,  w: 2163, h: 1308 },   // Área 1: (191,184) a (2351,1489)
+      { x: 188, y: 1578, w: 2163, h: 1308 },   // Área 2: (188,1578) a (2351,2886)
+      { x: 191, y: 2970, w: 2163, h: 1308 }    // Área 3: Estimativa para terceira foto
     ];
 
     // ✅ CORREÇÃO: Função de otimização para IMGBB apenas (não limita resolução original)
@@ -529,7 +529,7 @@
       const bg = new Image();
       bg.src = 'caralho (1).png';
       bg.onload = () => {
-        log('✅ Background stories carregado: caralho (1).png - 3375x6000px');
+        log('✅ Background stories carregado: caralho (1).png');
         ctx.drawImage(bg, 0, 0, storiesCanvas.width, storiesCanvas.height);
         
         photos.forEach((p, i) => {
@@ -539,12 +539,7 @@
             const c = STORIES_COORDS[i];
             if (!c) return;
             drawImageCover(ctx, img, c.x, c.y, c.w, c.h);
-            log(`✅ Foto ${i+1} posicionada no stories: X=${c.x}, Y=${c.y}, W=${c.w}, H=${c.h}`);
-            
-            // ✅ DEBUG: Desenhar retângulo vermelho para verificar posição
-            ctx.strokeStyle = 'red';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(c.x, c.y, c.w, c.h);
+            log(`✅ Foto ${i+1} posicionada no stories: ${c.x}, ${c.y}, ${c.w}x${c.h} (Resolução: ${img.width}x${img.height})`);
           };
           img.onerror = () => log('❌ Erro ao cargar imagem: ' + p.substring(0, 50));
         });
@@ -562,7 +557,7 @@
       const bg = new Image();
       bg.src = 'imprimir (1).png';
       bg.onload = () => {
-        log('✅ Background print carregado: imprimir (1).png - 3322x5167px');
+        log('✅ Background print carregado: imprimir (1).png - 9x14');
         ctx.drawImage(bg, 0, 0, printCanvas.width, printCanvas.height);
         
         photos.forEach((p, i) => {
@@ -572,12 +567,7 @@
             const c = PRINT_COORDS[i]; 
             if (!c) return;
             drawImageCover(ctx, img, c.x, c.y, c.w, c.h);
-            log(`✅ Foto ${i+1} posicionada no print: X=${c.x}, Y=${c.y}, W=${c.w}, H=${c.h}`);
-            
-            // ✅ DEBUG: Desenhar retângulo vermelho para verificar posição
-            ctx.strokeStyle = 'red';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(c.x, c.y, c.w, c.h);
+            log(`✅ Foto ${i+1} posicionada no print: ${c.x}, ${c.y}, ${c.w}x${c.h} (Resolução: ${img.width}x${img.height})`);
           };
           img.onerror = () => log('❌ Erro ao cargar imagem para print: ' + p.substring(0, 50));
         });
