@@ -246,54 +246,26 @@
         }
         
         // ✅ CORREÇÃO: Montagem stories também em alta qualidade
-                // ✅ CORREÇÃO: Montagem stories também em alta qualidade
         const storiesMontage = storiesCanvas.toDataURL('image/jpeg', 0.95);
         const optimizedStoriesMontage = await optimizeImageForImgbb(storiesMontage, 0.9);
         log(`✅ Montagem stories otimizada: ${Math.round(optimizedStoriesMontage.length/1024)}KB`);
-
-        // Tenta enviar a montagem para o IMGBB e pegar a URL pública (não substitui o raw)
-        log('🔄 Enviando montagem stories para IMGBB...');
-        let montageUrl = null;
-        try {
-          const montageBase64 = optimizedStoriesMontage.split(',')[1];
-          const montageForm = new FormData();
-          montageForm.append('key', '6734e028b20f88d5795128d242f85582');
-          montageForm.append('image', montageBase64);
-          const montageResp = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: montageForm });
-          const montageJson = await montageResp.json();
-          if (montageJson && montageJson.success && montageJson.data && montageJson.data.url) {
-            montageUrl = montageJson.data.url;
-            log('✅ Montagem enviada para IMGBB: ' + montageUrl);
-          } else {
-            log('⚠️ Falha ao enviar montagem para IMGBB: ' + (montageJson?.error?.message || 'Resposta inválida'));
-          }
-        } catch (err) {
-          log('❌ Erro no upload da montagem para IMGBB: ' + err.message);
-        }
-
+        
         log('🔄 Criando NOVA sessão do visualizador...');
-        log(`📤 Enviando ${optimizedPhotos.length} fotos em ALTA RESOLUÇÃO + montagem stories (url: ${montageUrl || 'N/A'})`);
-
+        log(`📤 Enviando ${optimizedPhotos.length} fotos em ALTA RESOLUÇÃO + montagem stories`);
+        
         genVisualizadorQrBtn.disabled = true;
         genVisualizadorQrBtn.textContent = 'Enviando...';
-
+        
         // Timeout para evitar travamento
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => reject(new Error('Timeout no envio para IMGBB')), 60000); // 60 segundos
         });
-
+        
         const sendPromise = new Promise((resolve, reject) => {
           socket.emit('create_viewer_session', { 
               photos: optimizedPhotos,
-              storiesMontage: optimizedStoriesMontage,
-              storiesMontageUrl: montageUrl
+              storiesMontage: optimizedStoriesMontage
           });
-
-          // Esperar pela resposta
-          const successHandler = ({ viewerId }) => {
-            socket.off('viewer_session_created', successHandler);
-            socket.off('viewer_session_error', errorHandler);
-            resolve(viewer
           
           // Esperar pela resposta
           const successHandler = ({ viewerId }) => {
