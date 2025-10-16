@@ -108,32 +108,37 @@ const viewerSessions = {};
 
 const IMGBB_API_KEY = "6734e028b20f88d5795128d242f85582";
 
-// ✅ CORREÇÃO MELHORADA: Função de upload IMGBB com timeout e retry
+// ✅ CORREÇÃO COMPLETA: Função de upload IMGBB sem dependências do navegador
 async function uploadToImgbb(imageData, retries = 3) {
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             console.log(`📤 Tentativa ${attempt}/${retries} - Iniciando upload para IMGBB...`);
             
-            // Verificar se a imagem é muito grande
-            if (imageData.length > 2000000) { // 2MB
-                console.warn('⚠️ Imagem muito grande, otimizando...');
-                // Se for muito grande, vamos otimizar mais
-                const optimized = await optimizeImageBase64(imageData);
-                imageData = optimized;
+            const base64Data = imageData.split(',')[1];
+            if (!base64Data) {
+                console.error('❌ Dados base64 inválidos');
+                return null;
             }
             
-            const base64Data = imageData.split(',')[1];
+            // Calcular tamanho da imagem
+            const imageSizeKB = Buffer.byteLength(base64Data, 'base64') / 1024;
+            console.log(`📊 Tamanho da imagem: ${Math.round(imageSizeKB)}KB`);
+            
+            // Verificar se a imagem é muito grande
+            if (imageSizeKB > 10000) { // 10MB
+                console.error('❌ Imagem muito grande para IMGBB (>10MB)');
+                return null;
+            }
             
             const formData = new URLSearchParams();
             formData.append('key', IMGBB_API_KEY);
             formData.append('image', base64Data);
 
-            console.log(`📊 Tamanho base64: ${Math.round(base64Data.length/1024)}KB`);
-            
             // ✅ CORREÇÃO: Usar AbortController para timeout
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 15000); // 15 segundos
+            const timeout = setTimeout(() => controller.abort(), 30000); // 30 segundos
             
+            console.log(`🔗 Enviando para IMGBB...`);
             const response = await fetch('https://api.imgbb.com/1/upload', {
                 method: 'POST',
                 body: formData,
@@ -165,39 +170,11 @@ async function uploadToImgbb(imageData, retries = 3) {
                 console.log(`🔄 Tentando novamente em ${2 * attempt} segundos...`);
                 await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
             } else {
+                console.error(`💥 Todas as tentativas falharam para upload IMGBB`);
                 return null;
             }
         }
     }
-}
-
-// ✅ NOVA FUNÇÃO: Otimizar imagem base64
-function optimizeImageBase64(dataUrl) {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.src = dataUrl;
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Reduzir para no máximo 1200px na largura
-            let width = img.width;
-            let height = img.height;
-            const maxWidth = 1200;
-            
-            if (width > maxWidth) {
-                height = (height * maxWidth) / width;
-                width = maxWidth;
-            }
-            
-            canvas.width = width;
-            canvas.height = height;
-            
-            ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.8));
-        };
-        img.onerror = () => resolve(dataUrl);
-    });
 }
 
 io.on('connection', (socket) => {
@@ -223,7 +200,7 @@ io.on('connection', (socket) => {
     console.log(`\n🔄🔄🔄 CREATE_VIEWER_SESSION INICIADO 🔄🔄🔄`);
     console.log(`📍 Sessão FIXA: ${FIXED_SESSION_ID}`);
     console.log(`📸 Quantidade de fotos: ${photos ? photos.length : 0}`);
-    console.log(`🖼️ Stories Montage: ${storiesMontage ? 'Sim' : 'Não'}`);
+    console.log(`🖼️ Stories Montage: ${storiesMontage ? 'Sim (' + Math.round(storiesMontage.length/1024) + 'KB)' : 'Não'}`);
     console.log(`🔌 Socket ID: ${socket.id}`);
 
     if (!photos || !Array.isArray(photos)) {
@@ -260,22 +237,26 @@ io.on('connection', (socket) => {
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
-        // Fazer upload da moldura do stories para IMGBB
+        // ✅ CORREÇÃO: Fazer upload da moldura do stories para IMGBB COM MAIS DETALHES
         let storiesUrl = null;
         if (storiesMontage) {
             console.log('📤 Enviando moldura do stories para IMGBB...');
+            console.log(`📊 Tamanho da montagem: ${Math.round(storiesMontage.length/1024)}KB`);
+            
             try {
                 storiesUrl = await uploadToImgbb(storiesMontage, 2);
                 if (storiesUrl) {
                     console.log(`✅ Moldura stories enviada: ${storiesUrl}`);
                 } else {
-                    console.log('❌ Falha no upload da moldura do stories');
+                    console.log('❌ Falha no upload da moldura do stories - usando fallback');
                     storiesUrl = storiesMontage; // Fallback
                 }
             } catch (error) {
                 console.error('❌ Erro no upload da moldura:', error.message);
                 storiesUrl = storiesMontage; // Fallback
             }
+        } else {
+            console.log('⚠️ Nenhuma moldura do stories fornecida para upload');
         }
 
         // Criar sessão do visualizador
@@ -292,6 +273,7 @@ io.on('connection', (socket) => {
 
         console.log(`🎯 Sessão do visualizador criada: ${viewerId}`);
         console.log(`📊 Resumo: ${successCount}/${photos.length} fotos enviadas com sucesso para IMGBB`);
+        console.log(`🖼️ Stories: ${storiesUrl ? 'Enviado para IMGBB' : 'Fallback para data URL'}`);
         
         socket.emit('viewer_session_created', { viewerId });
 
