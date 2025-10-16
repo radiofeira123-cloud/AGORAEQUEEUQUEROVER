@@ -183,7 +183,10 @@
 
   <div id="debugInfo"></div>
 
+  <!-- ÁUDIOS -->
   <audio id="clack" src="clack.mp3" preload="auto"></audio>
+  <audio id="inicio" src="inicio.mp3" preload="auto"></audio>
+  <audio id="fim" src="fim.mp3" preload="auto"></audio>
 
   <script>
     const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
@@ -216,7 +219,11 @@
     const countdownEl = document.getElementById('countdown');
     const msgEl = document.getElementById('msg');
     const thankScreen = document.getElementById('thankScreen');
+    
+    // ÁUDIOS
     const clack = document.getElementById('clack');
+    const inicio = document.getElementById('inicio');
+    const fim = document.getElementById('fim');
 
     let stream = null;
     let photos = [];
@@ -277,6 +284,14 @@
           setTimeout(() => {
             createConfetti();
             document.querySelector('#thank').classList.add('thank-you-pulse');
+            
+            // ✅ TOCAR ÁUDIO FIM quando chegar na tela de agradecimento
+            try { 
+              fim.currentTime = 0; 
+              fim.play().catch(e => console.log('🔇 Audio fim não pode ser reproduzido:', e));
+            } catch(e){ 
+              console.log('🔇 Audio fim não pode ser reproduzido');
+            }
           }, 600);
         } else {
           if (document.querySelector('#thank')) {
@@ -354,6 +369,14 @@
     });
 
     startBtn.addEventListener('click', async () => {
+      // ✅ TOCAR ÁUDIO INICIO quando clicar em iniciar
+      try { 
+        inicio.currentTime = 0; 
+        await inicio.play(); 
+      } catch(e){ 
+        console.log('🔇 Audio inicio não pode ser reproduzido');
+      }
+      
       // Adicionar animação de clique no botão
       startBtn.style.animation = 'shake 0.5s';
       
@@ -489,6 +512,7 @@
           if (t <= 2) {
             countdownEl.textContent = 'SORRIA!';
             countdownEl.style.color = '#ffd600';
+            // ✅ CORREÇÃO: Clack nos 4 segundos (quando t=2)
             if (t === 2) {
               try { 
                 clack.currentTime = 0; 
