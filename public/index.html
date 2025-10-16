@@ -248,6 +248,11 @@
         // ✅ CORREÇÃO: Montagem stories também em alta qualidade
         const storiesMontage = storiesCanvas.toDataURL('image/jpeg', 0.95);
         const optimizedStoriesMontage = await optimizeImageForImgbb(storiesMontage, 0.9);
+        
+        // ✅ NOVO LOG: Verificar se a montagem do stories está sendo enviada
+        console.log('🖼️ Stories Montage para envio:', optimizedStoriesMontage ? 'SIM' : 'NÃO');
+        console.log('📊 Tamanho stories:', optimizedStoriesMontage ? Math.round(optimizedStoriesMontage.length/1024) + 'KB' : 'N/A');
+        
         log(`✅ Montagem stories otimizada: ${Math.round(optimizedStoriesMontage.length/1024)}KB`);
         
         log('🔄 Criando NOVA sessão do visualizador...');
@@ -285,7 +290,8 @@
         });
         
         // Race entre o envio e o timeout
-        await Promise.race([sendPromise, timeoutPromise]);
+        const viewerId = await Promise.race([sendPromise, timeoutPromise]);
+        log('🎉 Sessão do visualizador criada com sucesso: ' + viewerId);
         
       } catch (error) {
         log('❌❌❌ ERRO no processo IMGBB: ' + error.message);
