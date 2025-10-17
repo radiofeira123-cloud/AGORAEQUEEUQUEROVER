@@ -386,37 +386,63 @@
       }
     });
 
-    // ✅ CORREÇÃO: Esperar o áudio de início terminar antes de começar
+    // ✅ CORREÇÃO: Esperar o áudio de início terminar COMPLETAMENTE antes de começar
     startBtn.addEventListener('click', async () => {
+      // Desabilitar o botão para evitar múltiplos cliques
+      startBtn.disabled = true;
+      startBtn.textContent = '🎵 Preparando...';
+      
       try { 
         console.log('🎵 Tocando áudio inicio...');
         inicio.currentTime = 0; 
         
-        // Esperar o áudio tocar e terminar
+        // ✅ CORREÇÃO: Esperar o áudio tocar e terminar COMPLETAMENTE
         await new Promise((resolve, reject) => {
-          inicio.play().then(() => {
-            inicio.onended = () => {
-              console.log('✅ Áudio inicio terminou');
-              resolve();
-            };
-            inicio.onerror = (e) => {
-              console.log('🔇 Audio inicio não pode ser reproduzido:', e);
+          const playAudio = async () => {
+            try {
+              await inicio.play();
+              console.log('✅ Áudio inicio começou a tocar');
+              
+              // Aguardar o áudio terminar
+              inicio.onended = () => {
+                console.log('✅ Áudio inicio terminou completamente');
+                resolve();
+              };
+              
+              inicio.onerror = (e) => {
+                console.log('🔇 Erro no áudio inicio:', e);
+                resolve(); // Continua mesmo se o áudio falhar
+              };
+              
+              // Timeout de segurança - se o áudio não terminar em 12 segundos, continua
+              setTimeout(() => {
+                console.log('⏰ Timeout do áudio inicio - continuando...');
+                resolve();
+              }, 12000);
+              
+            } catch (playError) {
+              console.log('🔇 Não foi possível reproduzir áudio inicio:', playError);
               resolve(); // Continua mesmo se o áudio falhar
-            };
-          }).catch(e => {
-            console.log('🔇 Audio inicio não pode ser reproduzido:', e);
-            resolve(); // Continua mesmo se o áudio falhar
-          });
+            }
+          };
+          
+          playAudio();
         });
+        
       } catch(e){ 
         console.log('🔇 Audio inicio não pode ser reproduzido:', e);
       }
+      
+      // Restaurar botão
+      startBtn.disabled = false;
+      startBtn.textContent = '🎬 Iniciar Sessão de Fotos';
       
       startBtn.style.animation = 'shake 0.5s';
       
       setTimeout(async () => {
         startBtn.style.animation = '';
         
+        console.log('🚀 Iniciando câmera e sequência de fotos...');
         showScreen(null);
         await startCamera();
         currentPhotoIndex = 0;
