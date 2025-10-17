@@ -20,15 +20,27 @@
     #startBtn{padding:18px 25px;border-radius:12px;border:none;background:#fff;color:#0b84ff;font-weight:700;cursor:pointer;font-size:20px;margin-top:5px;box-shadow:0 4px 15px rgba(0,0,0,0.3);width:100%;max-width:300px;transition:all 0.3s ease}
     .logo{max-width:180px;margin-bottom:20px;border-radius:10px}
     
-    /* Elementos de câmera - REMOVIDO ESPELHAMENTO */
-    #videoEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none; transform: scaleX(-1); /* CORREÇÃO: remover espelhamento */ }
-    #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;z-index:10} /* Canvas normal */
+    /* Elementos de câmera */
+    #videoEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none; transform: scaleX(-1);}
+    #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;z-index:10}
+    
+    /* Progresso */
+    #progress{position:fixed;top:20px;left:0;right:0;text-align:center;font-size:24px;font-weight:700;z-index:100;color:#fff;text-shadow:0 0 10px #000}
     
     /* Countdown */
     #countdown{position:fixed;top:30%;left:0;right:0;text-align:center;font-size:120px;font-weight:800;text-shadow:0 0 20px #000, 0 0 30px #000;z-index:100;color:#fff}
     
     /* Mensagens */
     #msg{position:fixed;top:50%;left:0;right:0;text-align:center;font-size:28px;font-weight:700;z-index:100;color:#fff;text-shadow:0 0 10px #000}
+    
+    /* Tela de preview da foto */
+    #previewScreen{background:rgba(0,0,0,0.8);z-index:20}
+    #previewContainer{background:rgba(255,255,255,0.15);padding:25px;border-radius:15px;width:95%;max-width:400px;text-align:center;backdrop-filter:blur(15px);border:2px solid rgba(255,255,255,0.3)}
+    #previewImage{width:100%;max-width:300px;border-radius:10px;margin-bottom:20px;border:3px solid rgba(255,255,255,0.3)}
+    .preview-buttons{display:flex;gap:15px;justify-content:center;width:100%}
+    .preview-btn{padding:15px 20px;border-radius:10px;border:none;font-weight:700;cursor:pointer;font-size:18px;flex:1;max-width:140px}
+    #refazerBtn{background:#dc3545;color:white}
+    #continuarBtn{background:#28a745;color:white}
     
     /* Thank you screen */
     #thank { background: rgba(255,255,255,0.15); padding: 25px; border-radius: 15px; width:95%;max-width:400px;text-align:center;backdrop-filter:blur(15px);border:2px solid rgba(255,255,255,0.3)}
@@ -41,21 +53,17 @@
     
     #debugInfo {position:fixed;bottom:10px;left:10px;font-size:10px;color:#888;background:rgba(0,0,0,0.7);padding:4px;border-radius:4px;z-index:1000}
     
-    /* ANIMAÇÕES ADICIONADAS - SEM ANIMAÇÃO PARA A TELA DE ENTRAR EM TELA CHEIA */
-    
-    /* Animação de entrada para as telas (exceto enterFs) */
+    /* ANIMAÇÕES */
     @keyframes screenSlideIn {
       0% { transform: translateY(50px); opacity: 0; }
       100% { transform: translateY(0); opacity: 1; }
     }
     
-    /* Animação de saída para as telas (exceto enterFs) */
     @keyframes screenSlideOut {
       0% { transform: translateY(0); opacity: 1; }
       100% { transform: translateY(-50px); opacity: 0; }
     }
     
-    /* Classes de animação para as telas (exceto enterFs) */
     .screen-animate-in {
       animation: screenSlideIn 0.5s ease-out forwards;
     }
@@ -64,7 +72,6 @@
       animation: screenSlideOut 0.5s ease-in forwards;
     }
     
-    /* ANIMAÇÃO MELHORADA para o botão de iniciar */
     @keyframes superPulse {
       0% { 
         transform: scale(1); 
@@ -104,12 +111,10 @@
       20%, 40%, 60%, 80% { transform: translateX(5px); }
     }
     
-    /* Aplicar animação ao botão de iniciar */
     .super-pulse-animation {
       animation: superPulse 2.5s infinite;
     }
     
-    /* Animação para a tela final */
     @keyframes confetti {
       0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
       100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
@@ -134,7 +139,6 @@
       animation: thankYouPulse 2s infinite;
     }
     
-    /* Animação de entrada da câmera */
     @keyframes cameraAppear {
       0% { opacity: 0; transform: scale(0.9); }
       100% { opacity: 1; transform: scale(1); }
@@ -146,7 +150,7 @@
   </style>
 </head>
 <body>
-  <!-- ENTER FULLSCREEN - APENAS NA PRIMEIRA VEZ - SEM ANIMAÇÕES -->
+  <!-- ENTER FULLSCREEN -->
   <div id="enterFs" class="screen visible" style="background:linear-gradient(135deg,#001e3c,#0b84ff)">
     <div style="text-align:center;background:rgba(0,0,0,0.3);padding:20px;border-radius:15px;backdrop-filter:blur(10px);width:95%;max-width:400px">
       <img src="logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
@@ -156,7 +160,7 @@
     </div>
   </div>
 
-  <!-- WELCOME SCREEN - COM BOTÃO INICIAR -->
+  <!-- WELCOME SCREEN -->
   <div id="welcomeScreen" class="screen hidden" style="background:linear-gradient(135deg,#001e3c,#0b84ff)">
     <div id="welcome">
       <img src="logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
@@ -169,8 +173,25 @@
   <!-- CAMERA VIEW -->
   <video id="videoEl" autoplay playsinline muted></video>
   <canvas id="canvasEl"></canvas>
+  
+  <!-- PROGRESSO -->
+  <div id="progress" class="hidden"></div>
+  
+  <!-- COUNTDOWN -->
   <div id="countdown"></div>
   <div id="msg"></div>
+
+  <!-- PREVIEW SCREEN -->
+  <div id="previewScreen" class="screen hidden">
+    <div id="previewContainer">
+      <h2 style="margin-bottom:15px">Confira sua foto</h2>
+      <img id="previewImage" src="" alt="Preview da foto">
+      <div class="preview-buttons">
+        <button id="refazerBtn" class="preview-btn">🔄 Refazer</button>
+        <button id="continuarBtn" class="preview-btn">✅ Continuar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- THANK YOU SCREEN -->
   <div id="thankScreen" class="screen hidden" style="background:linear-gradient(135deg,#001e3c,#0b84ff)">
@@ -210,14 +231,20 @@
     }
     setInterval(updateDebugInfo, 1000);
 
+    // Elementos da interface
     const enterFs = document.getElementById('enterFs');
     const enterFsBtn = document.getElementById('enterFsBtn');
     const welcomeScreen = document.getElementById('welcomeScreen');
     const startBtn = document.getElementById('startBtn');
     const videoEl = document.getElementById('videoEl');
     const canvasEl = document.getElementById('canvasEl');
+    const progressEl = document.getElementById('progress');
     const countdownEl = document.getElementById('countdown');
     const msgEl = document.getElementById('msg');
+    const previewScreen = document.getElementById('previewScreen');
+    const previewImage = document.getElementById('previewImage');
+    const refazerBtn = document.getElementById('refazerBtn');
+    const continuarBtn = document.getElementById('continuarBtn');
     const thankScreen = document.getElementById('thankScreen');
     
     // ÁUDIOS
@@ -227,13 +254,13 @@
 
     let stream = null;
     let photos = [];
+    let currentPhotoIndex = 0;
+    let currentPhotoData = null;
 
-    // Controle de estado das telas com animações (exceto para enterFs)
+    // Controle de estado das telas
     function showScreen(screenElement) {
-      // Esconde todas as telas com animação (exceto enterFs)
-      [enterFs, welcomeScreen, thankScreen].forEach(screen => {
+      [enterFs, welcomeScreen, previewScreen, thankScreen].forEach(screen => {
         if (screen && !screen.classList.contains('hidden')) {
-          // Se não for a tela enterFs, aplicar animação de saída
           if (screen.id !== 'enterFs') {
             screen.classList.add('screen-animate-out');
             setTimeout(() => {
@@ -243,7 +270,6 @@
               screen.style.display = 'none';
             }, 500);
           } else {
-            // Para enterFs, apenas esconder sem animação
             screen.classList.add('hidden');
             screen.classList.remove('visible');
             screen.style.display = 'none';
@@ -251,26 +277,24 @@
         }
       });
       
-      // Para video e canvas, apenas controlamos display
       videoEl.style.display = 'none';
       canvasEl.style.display = 'none';
+      progressEl.style.display = 'none';
+      countdownEl.textContent = '';
+      msgEl.textContent = '';
       
-      // Mostra a tela desejada com animação (exceto enterFs)
       if (screenElement) {
         screenElement.classList.remove('hidden');
         screenElement.classList.add('visible');
         screenElement.style.display = 'flex';
         
-        // Se não for a tela enterFs, aplicar animação de entrada
         if (screenElement.id !== 'enterFs') {
           screenElement.classList.add('screen-animate-in');
-          
           setTimeout(() => {
             screenElement.classList.remove('screen-animate-in');
           }, 500);
         }
         
-        // Adicionar animação específica para a tela de boas-vindas
         if (screenElement.id === 'welcomeScreen') {
           setTimeout(() => {
             startBtn.classList.add('super-pulse-animation');
@@ -279,24 +303,21 @@
           startBtn.classList.remove('super-pulse-animation');
         }
         
-        // Adicionar animação específica para a tela de agradecimento
         if (screenElement.id === 'thankScreen') {
           setTimeout(() => {
             createConfetti();
             document.querySelector('#thank').classList.add('thank-you-pulse');
             
-            // ✅ TOCAR ÁUDIO FIM quando chegar na tela de agradecimento
-            try { 
-              fim.currentTime = 0; 
-              fim.play().catch(e => console.log('🔇 Audio fim não pode ser reproduzido:', e));
-            } catch(e){ 
-              console.log('🔇 Audio fim não pode ser reproduzido');
-            }
+            setTimeout(() => {
+              try { 
+                console.log('🎵 Tocando áudio fim...');
+                fim.currentTime = 0; 
+                fim.play().catch(e => console.log('🔇 Audio fim não pode ser reproduzido:', e));
+              } catch(e){ 
+                console.log('🔇 Audio fim não pode ser reproduzido');
+              }
+            }, 300);
           }, 600);
-        } else {
-          if (document.querySelector('#thank')) {
-            document.querySelector('#thank').classList.remove('thank-you-pulse');
-          }
         }
       }
     }
@@ -317,7 +338,6 @@
         
         document.body.appendChild(confetti);
         
-        // Remover após a animação
         setTimeout(() => {
           confetti.remove();
         }, 5000);
@@ -345,7 +365,7 @@
       updateDebugInfo();
     });
 
-    // Estado inicial - SEMPRE começar na tela de entrar em tela cheia
+    // Estado inicial
     showScreen(enterFs);
 
     enterFsBtn.addEventListener('click', async () => {
@@ -359,7 +379,6 @@
         console.warn('fullscreen failed', e); 
       }
       
-      // Sempre ir para welcomeScreen após entrar em tela cheia
       showScreen(welcomeScreen);
 
       if (session) {
@@ -369,22 +388,23 @@
     });
 
     startBtn.addEventListener('click', async () => {
-      // ✅ TOCAR ÁUDIO INICIO quando clicar em iniciar
       try { 
+        console.log('🎵 Tocando áudio inicio...');
         inicio.currentTime = 0; 
         await inicio.play(); 
       } catch(e){ 
-        console.log('🔇 Audio inicio não pode ser reproduzido');
+        console.log('🔇 Audio inicio não pode ser reproduzido:', e);
       }
       
-      // Adicionar animação de clique no botão
       startBtn.style.animation = 'shake 0.5s';
       
       setTimeout(async () => {
         startBtn.style.animation = '';
         
-        showScreen(null); // Remove todas as telas para mostrar a câmera
+        showScreen(null);
         await startCamera();
+        currentPhotoIndex = 0;
+        photos = [];
         await runCaptureSequence();
       }, 500);
     });
@@ -393,37 +413,30 @@
       try {
         console.log('📷 Tentando acessar câmera frontal...');
         
-        // Configuração para resolução MÁXIMA 3264x1836
         const constraints = {
           video: { 
-            facingMode: { exact: "user" }, // Forçar câmera frontal
-            width: { ideal: 3264, max: 3264 }, // RESOLUÇÃO MÁXIMA
-            height: { ideal: 1836, max: 1836 }, // RESOLUÇÃO MÁXIMA
+            facingMode: { exact: "user" },
+            width: { ideal: 3264, max: 3264 },
+            height: { ideal: 1836, max: 1836 },
             aspectRatio: { ideal: 16/9 },
             frameRate: { ideal: 30 }
           }, 
           audio: false 
         };
 
-        console.log('🔧 Solicitando permissão da câmera com resolução máxima 3264x1836...');
+        console.log('🔧 Solicitando permissão da câmera...');
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         
         console.log('✅ Permissão concedida, configurando vídeo...');
         videoEl.srcObject = stream;
-        
-        // CORREÇÃO: Remover espelhamento da câmera
         videoEl.style.transform = 'scaleX(-1)';
-        
-        // Garantir que o vídeo fique visível com animação
         videoEl.style.display = 'block';
         videoEl.classList.add('camera-appear');
         
-        // Aguardar o vídeo estar realmente pronto
         return new Promise((resolve, reject) => {
           videoEl.onloadedmetadata = () => {
             console.log('✅ Vídeo carregado - Dimensões:', videoEl.videoWidth, 'x', videoEl.videoHeight);
             
-            // Forçar play para garantir que o vídeo funcione
             videoEl.play().then(() => {
               console.log('✅ Vídeo está reproduzindo');
               setTimeout(() => {
@@ -441,7 +454,6 @@
             reject(new Error('Erro no elemento de vídeo'));
           };
           
-          // Timeout de segurança
           setTimeout(() => {
             if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
               console.log('✅ Vídeo carregado via timeout');
@@ -458,20 +470,17 @@
       } catch (e) {
         console.error('❌ Erro ao acessar a câmera:', e);
         
-        // TENTATIVA ALTERNATIVA: Configuração mais simples SEM limitações
         try {
-          console.log('🔄 Tentando configuração alternativa da câmera (sem limitações)...');
+          console.log('🔄 Tentando configuração alternativa da câmera...');
           stream = await navigator.mediaDevices.getUserMedia({ 
             video: { 
               facingMode: { exact: "user" }
-              // SEM restrições de resolução - usar máximo disponível
             },
             audio: false 
           });
           
           videoEl.srcObject = stream;
           videoEl.style.display = 'block';
-          // CORREÇÃO: Remover espelhamento da câmera
           videoEl.style.transform = 'scaleX(-1)';
           videoEl.classList.add('camera-appear');
           console.log('✅ Câmera alternativa iniciada');
@@ -498,68 +507,97 @@
 
     function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
 
-    async function runCaptureSequence() {
-      photos = [];
-      console.log('🔄 Iniciando sequência de captura');
+    // ✅ NOVA FUNÇÃO: Mostrar preview da foto
+    function showPhotoPreview(photoData) {
+      previewImage.src = photoData;
+      showScreen(previewScreen);
+    }
+
+    // ✅ NOVA FUNÇÃO: Capturar uma única foto
+    async function captureSinglePhoto() {
+      console.log(`📸 Capturando foto ${currentPhotoIndex + 1}/3`);
       
-      // Garantir que o vídeo esteja visível durante TODA a contagem
+      // Atualizar progresso
+      progressEl.textContent = `${currentPhotoIndex + 1}/3`;
+      progressEl.style.display = 'block';
+      
+      // Mostrar contagem regressiva
       videoEl.style.display = 'block';
       
-      for (let shot = 0; shot < 3; shot++) {
-        console.log(`📸 Foto ${shot + 1}/3`);
-        
-        for (let t = 5; t > 0; t--) {
-          if (t <= 2) {
-            countdownEl.textContent = 'SORRIA!';
-            countdownEl.style.color = '#ffd600';
-            // ✅ CORREÇÃO: Clack nos 4 segundos (quando t=2)
-            if (t === 2) {
+      for (let t = 5; t > 0; t--) {
+        if (t <= 2) {
+          countdownEl.textContent = 'SORRIA!';
+          countdownEl.style.color = '#ffd600';
+          // Clack nos 4 segundos (quando t=2)
+          if (t === 2) {
+            setTimeout(() => {
               try { 
+                console.log('📸 Clack! (4 segundos)');
                 clack.currentTime = 0; 
-                await clack.play(); 
+                clack.play().catch(e => console.log('🔇 Clack não pode ser reproduzido:', e));
               } catch(e){ 
-                console.log('🔇 Audio clack não pode ser reproduzido');
+                console.log('🔇 Clack não pode ser reproduzido');
               }
-            }
-          } else {
-            countdownEl.textContent = String(t);
-            countdownEl.style.color = '#fff';
+            }, 500);
           }
-          await sleep(1000);
+        } else {
+          countdownEl.textContent = String(t);
+          countdownEl.style.color = '#fff';
         }
-        
-        countdownEl.textContent = '';
-        
-        // Capturar foto com a resolução REAL da câmera (MÁXIMA)
-        canvasEl.width = videoEl.videoWidth;
-        canvasEl.height = videoEl.videoHeight;
-        const ctx = canvasEl.getContext('2d');
-        
-        // ✅ CORREÇÃO: Desenhar a foto ESPELHADA para corrigir a visualização
-        ctx.translate(canvasEl.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-        
-        const data = canvasEl.toDataURL('image/jpeg', 1.0); // Qualidade máxima
-        photos.push(data);
-        
-        console.log(`✅ Foto ${shot + 1} capturada: ${canvasEl.width}x${canvasEl.height} (RESOLUÇÃO MÁXIMA)`);
-
-        // Show photo preview (corrigir espelhamento no preview também)
-        videoEl.style.display = 'none';
-        canvasEl.style.display = 'block';
-        await sleep(3000);
-        canvasEl.style.display = 'none';
-        videoEl.style.display = 'block'; // Voltar a mostrar o vídeo
+        await sleep(1000);
       }
-
-      // Finished sequence
-      stopCamera();
+      
       countdownEl.textContent = '';
-      msgEl.textContent = '';
-      showScreen(thankScreen);
+      
+      // Capturar foto
+      canvasEl.width = videoEl.videoWidth;
+      canvasEl.height = videoEl.videoHeight;
+      const ctx = canvasEl.getContext('2d');
+      
+      ctx.translate(canvasEl.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+      
+      const data = canvasEl.toDataURL('image/jpeg', 1.0);
+      console.log(`✅ Foto ${currentPhotoIndex + 1} capturada: ${canvasEl.width}x${canvasEl.height}`);
+      
+      return data;
+    }
 
-      // Envio robusto das fotos
+    // ✅ FUNÇÃO PRINCIPAL MODIFICADA: Sequência de captura com preview
+    async function runCaptureSequence() {
+      if (currentPhotoIndex >= 3) {
+        // Todas as fotos foram capturadas
+        stopCamera();
+        progressEl.style.display = 'none';
+        showScreen(thankScreen);
+        sendPhotosToServer();
+        return;
+      }
+      
+      currentPhotoData = await captureSinglePhoto();
+      showPhotoPreview(currentPhotoData);
+    }
+
+    // ✅ EVENTOS DOS BOTÕES DE PREVIEW
+    refazerBtn.addEventListener('click', async () => {
+      console.log('🔄 Refazendo foto...');
+      showScreen(null);
+      videoEl.style.display = 'block';
+      await runCaptureSequence(); // Recaptura a mesma foto
+    });
+
+    continuarBtn.addEventListener('click', async () => {
+      console.log('✅ Continuando para próxima foto...');
+      photos.push(currentPhotoData);
+      currentPhotoIndex++;
+      showScreen(null);
+      videoEl.style.display = 'block';
+      await runCaptureSequence(); // Vai para a próxima foto
+    });
+
+    // ✅ FUNÇÃO: Enviar fotos para o servidor
+    function sendPhotosToServer() {
       if (session && photos.length > 0) {
         console.log(`📤🔁 ENVIANDO ${photos.length} FOTOS - MÚLTIPLAS TENTATIVAS`);
         
@@ -603,7 +641,7 @@
       }
     }
 
-    // Quando resetar sessão, voltar para WELCOME SCREEN (não enterFs) e manter tela cheia
+    // Quando resetar sessão
     socket.on('reset_session', () => {
       console.log('🔄 Reset session recebido - voltando para tela de welcome');
       
@@ -612,11 +650,15 @@
       videoEl.style.display = 'none';
       countdownEl.textContent = '';
       msgEl.textContent = '';
+      progressEl.style.display = 'none';
       
-      // Voltar para WELCOME SCREEN, não enterFs (e manter tela cheia)
+      currentPhotoIndex = 0;
+      photos = [];
+      currentPhotoData = null;
+      
       showScreen(welcomeScreen);
       
-      console.log('✅ Celular resetado para tela de welcome (mantendo tela cheia)');
+      console.log('✅ Celular resetado para tela de welcome');
     });
   </script>
 </body>
