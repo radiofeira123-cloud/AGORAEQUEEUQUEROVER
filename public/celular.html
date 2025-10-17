@@ -251,6 +251,14 @@
     const inicio = document.getElementById('inicio');
     const fim = document.getElementById('fim');
 
+    // ✅ CORREÇÃO: Forçar carregamento dos áudios
+    window.addEventListener('load', () => {
+      console.log('🔊 Forçando carregamento dos áudios...');
+      clack.load();
+      inicio.load();
+      fim.load();
+    });
+
     let stream = null;
     let photos = [];
     let currentPhotoIndex = 0;
@@ -559,7 +567,7 @@
       showScreen(previewScreen);
     }
 
-    // ✅ CORREÇÃO: Capturar uma única foto com clack funcionando
+    // ✅ CORREÇÃO COMPLETA: Capturar uma única foto com clack funcionando
     async function captureSinglePhoto() {
       console.log(`📸 Capturando foto ${currentPhotoIndex + 1}/3`);
       
@@ -574,13 +582,22 @@
         if (t <= 2) {
           countdownEl.textContent = 'SORRIA!';
           countdownEl.style.color = '#ffd600';
-          // ✅ CORREÇÃO: Clack funcionando - toca quando t=2 (4 segundos)
+          
+          // ✅ CORREÇÃO: Clack funcionando - toca quando t=2 (2 segundos antes da foto)
           if (t === 2) {
-            try { 
-              console.log('📸 Clack! (4 segundos)');
-              clack.currentTime = 0; 
-              await clack.play(); 
-            } catch(e){ 
+            console.log('📸 Clack! (2 segundos antes)');
+            // Reproduzir clack imediatamente quando chegar em 2
+            try {
+              clack.currentTime = 0;
+              await clack.play().catch(e => {
+                console.log('🔇 Clack não pode ser reproduzido (tentativa 1):', e);
+                // Segunda tentativa após pequeno delay
+                setTimeout(() => {
+                  clack.currentTime = 0;
+                  clack.play().catch(e2 => console.log('🔇 Clack não pode ser reproduzido (tentativa 2):', e2));
+                }, 100);
+              });
+            } catch(e) {
               console.log('🔇 Clack não pode ser reproduzido:', e);
             }
           }
