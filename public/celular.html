@@ -24,8 +24,8 @@
     #videoEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none; transform: scaleX(-1);}
     #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;z-index:10}
     
-    /* Progresso */
-    #progress{position:fixed;top:20px;left:0;right:0;text-align:center;font-size:24px;font-weight:700;z-index:100;color:#fff;text-shadow:0 0 10px #000}
+    /* Progresso - AGORA VISÍVEL */
+    #progress{position:fixed;top:20px;left:0;right:0;text-align:center;font-size:28px;font-weight:700;z-index:150;color:#fff;text-shadow:0 0 10px #000;background:rgba(0,0,0,0.5);padding:10px;backdrop-filter:blur(5px)}
     
     /* Countdown */
     #countdown{position:fixed;top:30%;left:0;right:0;text-align:center;font-size:120px;font-weight:800;text-shadow:0 0 20px #000, 0 0 30px #000;z-index:100;color:#fff}
@@ -174,7 +174,7 @@
   <video id="videoEl" autoplay playsinline muted></video>
   <canvas id="canvasEl"></canvas>
   
-  <!-- PROGRESSO -->
+  <!-- PROGRESSO - AGORA VISÍVEL -->
   <div id="progress" class="hidden"></div>
   
   <!-- COUNTDOWN -->
@@ -279,7 +279,6 @@
       
       videoEl.style.display = 'none';
       canvasEl.style.display = 'none';
-      progressEl.style.display = 'none';
       countdownEl.textContent = '';
       msgEl.textContent = '';
       
@@ -387,11 +386,28 @@
       }
     });
 
+    // ✅ CORREÇÃO: Esperar o áudio de início terminar antes de começar
     startBtn.addEventListener('click', async () => {
       try { 
         console.log('🎵 Tocando áudio inicio...');
         inicio.currentTime = 0; 
-        await inicio.play(); 
+        
+        // Esperar o áudio tocar e terminar
+        await new Promise((resolve, reject) => {
+          inicio.play().then(() => {
+            inicio.onended = () => {
+              console.log('✅ Áudio inicio terminou');
+              resolve();
+            };
+            inicio.onerror = (e) => {
+              console.log('🔇 Audio inicio não pode ser reproduzido:', e);
+              resolve(); // Continua mesmo se o áudio falhar
+            };
+          }).catch(e => {
+            console.log('🔇 Audio inicio não pode ser reproduzido:', e);
+            resolve(); // Continua mesmo se o áudio falhar
+          });
+        });
       } catch(e){ 
         console.log('🔇 Audio inicio não pode ser reproduzido:', e);
       }
@@ -513,13 +529,13 @@
       showScreen(previewScreen);
     }
 
-    // ✅ NOVA FUNÇÃO: Capturar uma única foto
+    // ✅ CORREÇÃO: Capturar uma única foto com clack funcionando
     async function captureSinglePhoto() {
       console.log(`📸 Capturando foto ${currentPhotoIndex + 1}/3`);
       
-      // Atualizar progresso
+      // ✅ CORREÇÃO: Progresso agora VISÍVEL
       progressEl.textContent = `${currentPhotoIndex + 1}/3`;
-      progressEl.style.display = 'block';
+      progressEl.classList.remove('hidden');
       
       // Mostrar contagem regressiva
       videoEl.style.display = 'block';
@@ -528,17 +544,15 @@
         if (t <= 2) {
           countdownEl.textContent = 'SORRIA!';
           countdownEl.style.color = '#ffd600';
-          // Clack nos 4 segundos (quando t=2)
+          // ✅ CORREÇÃO: Clack funcionando - toca quando t=2 (4 segundos)
           if (t === 2) {
-            setTimeout(() => {
-              try { 
-                console.log('📸 Clack! (4 segundos)');
-                clack.currentTime = 0; 
-                clack.play().catch(e => console.log('🔇 Clack não pode ser reproduzido:', e));
-              } catch(e){ 
-                console.log('🔇 Clack não pode ser reproduzido');
-              }
-            }, 500);
+            try { 
+              console.log('📸 Clack! (4 segundos)');
+              clack.currentTime = 0; 
+              await clack.play(); 
+            } catch(e){ 
+              console.log('🔇 Clack não pode ser reproduzido:', e);
+            }
           }
         } else {
           countdownEl.textContent = String(t);
@@ -569,7 +583,7 @@
       if (currentPhotoIndex >= 3) {
         // Todas as fotos foram capturadas
         stopCamera();
-        progressEl.style.display = 'none';
+        progressEl.classList.add('hidden');
         showScreen(thankScreen);
         sendPhotosToServer();
         return;
@@ -584,7 +598,8 @@
       console.log('🔄 Refazendo foto...');
       showScreen(null);
       videoEl.style.display = 'block';
-      await runCaptureSequence(); // Recaptura a mesma foto
+      // Não incrementa o índice, refaz a mesma foto
+      await runCaptureSequence();
     });
 
     continuarBtn.addEventListener('click', async () => {
@@ -593,7 +608,7 @@
       currentPhotoIndex++;
       showScreen(null);
       videoEl.style.display = 'block';
-      await runCaptureSequence(); // Vai para a próxima foto
+      await runCaptureSequence();
     });
 
     // ✅ FUNÇÃO: Enviar fotos para o servidor
@@ -650,7 +665,7 @@
       videoEl.style.display = 'none';
       countdownEl.textContent = '';
       msgEl.textContent = '';
-      progressEl.style.display = 'none';
+      progressEl.classList.add('hidden');
       
       currentPhotoIndex = 0;
       photos = [];
