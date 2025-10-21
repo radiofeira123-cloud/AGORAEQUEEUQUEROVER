@@ -465,6 +465,13 @@
       
       log('🧹 Sessão finalizada - Celular resetado para próximo cliente');
       log('📱 QR Code do visualizador atual foi limpo');
+
+      // === ADICIONEI: reload da página (equivalente a F5) sem remover nada do index.html ===
+      // Pequeno delay para garantir que o emit e logs sejam processados antes do reload.
+      setTimeout(() => {
+        log('🔁 Recarregando a página (F5) para reiniciar estado da UI do operador');
+        location.reload();
+      }, 500);
     });
 
     // BOTÃO PARA LIMPAR VISUALIZADOR MANUALMENTE
@@ -636,3 +643,4 @@
   </script>
 </body>
 </html>
+
