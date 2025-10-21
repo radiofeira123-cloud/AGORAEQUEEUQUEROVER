@@ -1,3 +1,4 @@
+// server (1).js
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -6,7 +7,7 @@ const crypto = require('crypto');
 
 const app = express();
 
-// CORS MÁXIMO - PERMITIR TUDO
+// CORS MÁXIMO - PERMITIR TUDO (mantive seu comportamento original)
 app.use((req, res, next) => {
   const allowedOrigins = [
     'https://agoraequeeuquerover.vercel.app',
@@ -35,7 +36,7 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// SERVIÇO DE ARQUIVOS ESTÁTICOS
+// SERVIÇO DE ARQUIVOS ESTÁTICOS (mantido)
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, path) => {
     if (path.endsWith('.png')) {
@@ -48,7 +49,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-// ROTAS PARA OS ARQUIVOS PRINCIPAIS
+// ROTAS PARA OS ARQUIVOS PRINCIPAIS (mantidas)
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -61,7 +62,7 @@ app.get('/visualizador.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'visualizador.html'));
 });
 
-// ROTAS PARA AS IMAGENS
+// ROTAS PARA AS IMAGENS (mantidas)
 app.get('/logo.png', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'logo.png'));
 });
@@ -80,7 +81,7 @@ app.get('/clack.mp3', (req, res) => {
 
 const server = http.createServer(app);
 
-// ✅ CORREÇÃO: Socket.IO com configurações mais robustas
+// ✅ CORREÇÃO: Socket.IO com configurações mais robustas (mantive)
 const io = new Server(server, {
   cors: {
     origin: [
@@ -93,11 +94,11 @@ const io = new Server(server, {
     allowedHeaders: ["*"],
     credentials: true
   },
-  transports: ['websocket', 'polling'], // WebSocket primeiro
-  pingTimeout: 30000, // 30 segundos
-  pingInterval: 10000, // 10 segundos
-  connectTimeout: 30000, // 30 segundos
-  maxHttpBufferSize: 1e8, // 100MB
+  transports: ['websocket', 'polling'],
+  pingTimeout: 30000,
+  pingInterval: 10000,
+  connectTimeout: 30000,
+  maxHttpBufferSize: 1e8,
   allowEIO3: true
 });
 
@@ -106,15 +107,16 @@ const FIXED_SESSION_ID = "cabine-fixa";
 // Sessões do visualizador (cada cliente tem sua própria)
 const viewerSessions = {};
 
+// Sua chave IMGBB já estava no arquivo
 const IMGBB_API_KEY = "6734e028b20f88d5795128d242f85582";
 
-// ✅ CORREÇÃO COMPLETA: Função de upload IMGBB sem dependências do navegador
+// Função uploadToImgbb (mantive o seu robusto com retries / timeout)
 async function uploadToImgbb(imageData, retries = 3) {
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-            console.log(`📤 Tentativa ${attempt}/${retries} - Iniciando upload para IMGBB...`);
+            console.log(`📤 Tentativa ${attempt}/${retries} - Iniciando upload para IMGBB.`);
             
-            const base64Data = imageData.split(',')[1];
+            const base64Data = (imageData && imageData.split(',') && imageData.split(',')[1]) ? imageData.split(',')[1] : imageData;
             if (!base64Data) {
                 console.error('❌ Dados base64 inválidos');
                 return null;
@@ -134,7 +136,7 @@ async function uploadToImgbb(imageData, retries = 3) {
             formData.append('key', IMGBB_API_KEY);
             formData.append('image', base64Data);
 
-            // ✅ CORREÇÃO: Usar AbortController para timeout
+            // AbortController para timeout
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 30000); // 30 segundos
             
@@ -148,7 +150,12 @@ async function uploadToImgbb(imageData, retries = 3) {
             clearTimeout(timeout);
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                console.error(`❌ IMGBB retornou status ${response.status}`);
+                if (attempt < retries) {
+                  await new Promise(r => setTimeout(r, 2000 * attempt));
+                  continue;
+                }
+                return null;
             }
             
             const data = await response.json();
@@ -159,15 +166,15 @@ async function uploadToImgbb(imageData, retries = 3) {
             } else {
                 console.error(`❌ Upload IMGBB falhou: ${data.error?.message || 'Erro desconhecido'}`);
                 if (attempt < retries) {
-                    await new Promise(resolve => setTimeout(resolve, 2000 * attempt)); // Backoff exponencial
+                    await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
                     continue;
                 }
                 return null;
             }
         } catch (error) {
-            console.error(`❌ Erro no upload IMGBB (tentativa ${attempt}):`, error.message);
+            console.error(`❌ Erro no upload IMGBB (tentativa ${attempt}):`, (error && error.message) ? error.message : error);
             if (attempt < retries) {
-                console.log(`🔄 Tentando novamente em ${2 * attempt} segundos...`);
+                console.log(`🔄 Tentando novamente em ${2 * attempt} segundos.`);
                 await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
             } else {
                 console.error(`💥 Todas as tentativas falharam para upload IMGBB`);
@@ -195,12 +202,12 @@ io.on('connection', (socket) => {
     console.log(`📱 CELULAR conectado à sessão fixa: ${FIXED_SESSION_ID}`);
   });
 
-  // ✅ CORREÇÃO MELHORADA: create_viewer_session com upload mais robusto
+  // Melhorado: create_viewer_session com upload p/ IMGBB (mantive seu fluxo)
   socket.on('create_viewer_session', async ({ photos, storiesMontage }) => {
     console.log(`\n🔄🔄🔄 CREATE_VIEWER_SESSION INICIADO 🔄🔄🔄`);
     console.log(`📍 Sessão FIXA: ${FIXED_SESSION_ID}`);
     console.log(`📸 Quantidade de fotos: ${photos ? photos.length : 0}`);
-    console.log(`🖼️ Stories Montage: ${storiesMontage ? 'Sim (' + Math.round(storiesMontage.length/1024) + 'KB)' : 'Não'}`);
+    console.log(`🖼️ Stories Montage: ${storiesMontage ? 'Sim' : 'Não'}`);
     console.log(`🔌 Socket ID: ${socket.id}`);
 
     if (!photos || !Array.isArray(photos)) {
@@ -217,7 +224,7 @@ io.on('connection', (socket) => {
         let successCount = 0;
         
         for (let i = 0; i < photos.length; i++) {
-            console.log(`📤 Enviando foto ${i+1} para IMGBB...`);
+            console.log(`📤 Enviando foto ${i+1} para IMGBB.`);
             try {
                 const imgbbUrl = await uploadToImgbb(photos[i], 2); // 2 tentativas
                 if (imgbbUrl) {
@@ -225,11 +232,11 @@ io.on('connection', (socket) => {
                     successCount++;
                     console.log(`✅ Foto ${i+1} enviada: ${imgbbUrl}`);
                 } else {
-                    console.log(`❌ Falha no upload da foto ${i+1}`);
+                    console.log(`❌ Falha no upload da foto ${i+1} — fallback para data URL`);
                     uploadedUrls.push(photos[i]); // Fallback para data URL
                 }
             } catch (error) {
-                console.error(`❌ Erro no upload da foto ${i+1}:`, error.message);
+                console.error(`❌ Erro no upload da foto ${i+1}:`, error && error.message ? error.message : error);
                 uploadedUrls.push(photos[i]); // Fallback para data URL
             }
             
@@ -237,12 +244,10 @@ io.on('connection', (socket) => {
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
-        // ✅ CORREÇÃO: Fazer upload da moldura do stories para IMGBB COM MAIS DETALHES
+        // Upload da moldura do stories para IMGBB (se houver)
         let storiesUrl = null;
         if (storiesMontage) {
-            console.log('📤 Enviando moldura do stories para IMGBB...');
-            console.log(`📊 Tamanho da montagem: ${Math.round(storiesMontage.length/1024)}KB`);
-            
+            console.log('📤 Enviando moldura do stories para IMGBB.');
             try {
                 storiesUrl = await uploadToImgbb(storiesMontage, 2);
                 if (storiesUrl) {
@@ -252,15 +257,14 @@ io.on('connection', (socket) => {
                     storiesUrl = storiesMontage; // Fallback
                 }
             } catch (error) {
-                console.error('❌ Erro no upload da moldura:', error.message);
+                console.error('❌ Erro no upload da moldura:', error && error.message ? error.message : error);
                 storiesUrl = storiesMontage; // Fallback
             }
-        } else {
-            console.log('⚠️ Nenhuma moldura do stories fornecida para upload');
         }
 
-        // Criar sessão do visualizador
+        // Criar sessão do visualizador com TTL (7 dias) — já estava no seu código
         const viewerId = crypto.randomUUID();
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
         viewerSessions[viewerId] = {
             originalSession: FIXED_SESSION_ID,
             photos: photos,
@@ -268,18 +272,19 @@ io.on('connection', (socket) => {
             storiesMontage: storiesMontage,
             storiesMontageImgbb: storiesUrl,
             createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 dias
+            expiresAt // iso string
         };
 
         console.log(`🎯 Sessão do visualizador criada: ${viewerId}`);
         console.log(`📊 Resumo: ${successCount}/${photos.length} fotos enviadas com sucesso para IMGBB`);
         console.log(`🖼️ Stories: ${storiesUrl ? 'Enviado para IMGBB' : 'Fallback para data URL'}`);
         
-        socket.emit('viewer_session_created', { viewerId });
+        // Emito também expiresAt para o operador salvar no localStorage
+        socket.emit('viewer_session_created', { viewerId, expiresAt });
 
     } catch (error) {
-        console.error('❌ Erro ao criar sessão do visualizador:', error);
-        socket.emit('viewer_session_error', { error: error.message });
+        console.error('❌ Erro ao criar sessão do visualizador:', error && error.message ? error.message : error);
+        socket.emit('viewer_session_error', { error: error.message || String(error) });
     }
   });
 
@@ -288,10 +293,11 @@ io.on('connection', (socket) => {
     const viewerId = (data && data.viewerId) || data;
     if (!viewerId) return;
     
+    // manter o formato de sala anterior (você usava viewer_<id> em logs)
     socket.join(`viewer_${viewerId}`);
     console.log(`👀 ${socket.id} entrou no visualizador: ${viewerId}`);
     
-    // Enviar dados completos para o visualizador
+    // Enviar dados completos para o visualizador (se existir)
     if (viewerSessions[viewerId]) {
       socket.emit('viewer_photos_ready', {
         photos: viewerSessions[viewerId].photos,
@@ -305,7 +311,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // celular -> server: photos_from_cell
+  // celular -> server: photos_from_cell (mantive)
   socket.on('photos_from_cell', ({ photos, attempt }) => {
     console.log(`\n📸📸📸 RECEBENDO FOTOS DO CELULAR 📸📸📸`);
     console.log(`📍 Sessão FIXA: ${FIXED_SESSION_ID}`);
@@ -340,7 +346,7 @@ io.on('connection', (socket) => {
     console.log(`📵 Celular entrou em tela cheia na sessão fixa ${FIXED_SESSION_ID}`);
   });
 
-  // operator clicks Finalizar Sessão - apenas reseta o celular
+  // operator clicks End session (mantive)
   socket.on('end_session', () => {
     // Apenas notificar o celular para resetar, sem afetar visualizadores
     io.to(FIXED_SESSION_ID).emit('reset_session');
@@ -352,7 +358,86 @@ io.on('connection', (socket) => {
   });
 });
 
-// Health check endpoint
+// --- NOVA ROTA: fallback HTTP para o visualizador pegar sessão se o socket emitir viewer_not_found ---
+// GET /api/viewer/:viewerId
+app.get('/api/viewer/:viewerId', (req, res) => {
+  const viewerId = req.params.viewerId;
+  const session = viewerSessions[viewerId];
+  if (!session) {
+    return res.status(404).json({ error: 'viewer_not_found' });
+  }
+
+  // Normalizar fotos (se forem array de objetos ou strings)
+  const photos = (session.photosImgbb && session.photosImgbb.length) ? session.photosImgbb : session.photos;
+  const storiesMontage = session.storiesMontageImgbb || session.storiesMontage || null;
+
+  res.json({
+    viewerId,
+    photos,
+    storiesMontage,
+    createdAt: session.createdAt,
+    expiresAt: session.expiresAt
+  });
+});
+
+// --- NOVA ROTA: proxy de download que valida se a foto pertence à sessão ---
+// GET /api/download?viewerId=...&url=...
+const ALLOWED_HOSTNAMES = ['i.imgbb.com', 'ibb.co', 'i.ibb.co', 'i.postimg.cc']; // ajuste conforme necessário
+
+app.get('/api/download', async (req, res) => {
+  try {
+    const { viewerId, url } = req.query;
+    if (!viewerId || !url) return res.status(400).send('viewerId e url são necessários');
+
+    const session = viewerSessions[viewerId];
+    if (!session) return res.status(404).send('sessão não encontrada');
+
+    // Normalizar array de fotos (strings ou objetos com url)
+    const photosList = (session.photosImgbb && session.photosImgbb.length)
+      ? session.photosImgbb
+      : session.photos;
+
+    const matched = photosList.find(p => {
+      if (!p) return false;
+      if (typeof p === 'string') return p === url;
+      if (typeof p === 'object' && p.url) return p.url === url;
+      return false;
+    });
+
+    if (!matched) return res.status(403).send('Foto não pertence a essa sessão');
+
+    // Validar hostname para evitar SSRF
+    const parsed = new URL(url);
+    if (!ALLOWED_HOSTNAMES.includes(parsed.hostname)) {
+      return res.status(403).send('Host não autorizado');
+    }
+
+    // Fetch upstream e stream direto (sem carregar tudo em memória)
+    const upstream = await fetch(url);
+    if (!upstream.ok) return res.status(502).send('Falha ao obter imagem do upstream');
+
+    const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+    const ext = (contentType.split('/')[1] || '').split(';')[0];
+    const filename = `photo-${Date.now()}.${ext || 'jpg'}`;
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    // Em Node, response.body é um stream — pipe para o res
+    if (upstream.body && typeof upstream.body.pipe === 'function') {
+      upstream.body.pipe(res);
+    } else {
+      // fallback: buffer
+      const buffer = Buffer.from(await upstream.arrayBuffer());
+      res.end(buffer);
+    }
+  } catch (err) {
+    console.error('Erro no /api/download', err && err.message ? err.message : err);
+    res.status(500).send('Erro interno no download');
+  }
+});
+
+// Health check endpoint (mantido)
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
@@ -362,7 +447,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Limpar sessões expiradas a cada hora
+// Limpar sessões expiradas a cada hora (mantido)
 setInterval(() => {
   const now = new Date();
   let expiredCount = 0;
