@@ -9,31 +9,17 @@
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:#000;color:#fff;overflow:hidden}
     .screen{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:15px}
-    
-    /* Botão tela cheia */
     #enterFsBtn{padding:18px 25px;border-radius:12px;border:none;background:#ffd600;color:#000;font-weight:700;cursor:pointer;font-size:20px;margin:15px;width:90%;max-width:300px}
-    
-    /* Welcome screen */
     #welcome{background:rgba(255,255,255,0.15);padding:25px;text-align:center;border-radius:15px;width:95%;max-width:400px;backdrop-filter:blur(15px);border:2px solid rgba(255,255,255,0.3)}
     #welcome h1{font-size:26px;margin-bottom:15px;text-shadow:2px 2px 4px rgba(0,0,0,0.5)}
     #welcome p{font-size:18px;margin-bottom:15px}
     #startBtn{padding:18px 25px;border-radius:12px;border:none;background:#fff;color:#0b84ff;font-weight:700;cursor:pointer;font-size:20px;margin-top:5px;box-shadow:0 4px 15px rgba(0,0,0,0.3);width:100%;max-width:300px;transition:all 0.3s ease}
     .logo{max-width:180px;margin-bottom:20px;border-radius:10px}
-    
-    /* Elementos de câmera */
     #videoEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none; transform: scaleX(-1);}
     #canvasEl{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;z-index:10}
-    
-    /* Progresso - AGORA VISÍVEL */
     #progress{position:fixed;top:20px;left:0;right:0;text-align:center;font-size:28px;font-weight:700;z-index:150;color:#fff;text-shadow:0 0 10px #000;background:rgba(0,0,0,0.5);padding:10px;backdrop-filter:blur(5px)}
-    
-    /* Countdown */
     #countdown{position:fixed;top:30%;left:0;right:0;text-align:center;font-size:120px;font-weight:800;text-shadow:0 0 20px #000, 0 0 30px #000;z-index:100;color:#fff}
-    
-    /* Mensagens */
     #msg{position:fixed;top:50%;left:0;right:0;text-align:center;font-size:28px;font-weight:700;z-index:100;color:#fff;text-shadow:0 0 10px #000}
-    
-    /* ✅ CORREÇÃO: Tela de preview da foto - TELA CHEIA */
     #previewScreen{background:rgba(0,0,0,0.9);z-index:20;padding:0}
     #previewContainer{position:relative;width:100%;height:100%;display:flex;flex-direction:column}
     #previewImage{width:100%;height:100%;object-fit:contain;display:block}
@@ -41,116 +27,17 @@
     .preview-btn{padding:12px 18px;border-radius:8px;border:none;font-weight:700;cursor:pointer;font-size:16px;flex:1;max-width:140px;background:rgba(0,0,0,0.7);color:white;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.3)}
     #refazerBtn{background:rgba(220,53,69,0.8)}
     #continuarBtn{background:rgba(40,167,69,0.8)}
-    
-    /* Thank you screen */
     #thank { background: rgba(255,255,255,0.15); padding: 25px; border-radius: 15px; width:95%;max-width:400px;text-align:center;backdrop-filter:blur(15px);border:2px solid rgba(255,255,255,0.3)}
     #thank h1{font-size:26px;margin-bottom:15px;text-shadow:2px 2px 4px rgba(0,0,0,0.5)}
     #thank p{font-size:18px}
-    
-    /* Estados de display */
     .hidden { display: none !important; }
     .visible { display: flex !important; }
-    
     #debugInfo {position:fixed;bottom:10px;left:10px;font-size:10px;color:#888;background:rgba(0,0,0,0.7);padding:4px;border-radius:4px;z-index:1000}
-    
-    /* ANIMAÇÕES */
-    @keyframes screenSlideIn {
-      0% { transform: translateY(50px); opacity: 0; }
-      100% { transform: translateY(0); opacity: 1; }
-    }
-    
-    @keyframes screenSlideOut {
-      0% { transform: translateY(0); opacity: 1; }
-      100% { transform: translateY(-50px); opacity: 0; }
-    }
-    
-    .screen-animate-in {
-      animation: screenSlideIn 0.5s ease-out forwards;
-    }
-    
-    .screen-animate-out {
-      animation: screenSlideOut 0.5s ease-in forwards;
-    }
-    
-    @keyframes superPulse {
-      0% { 
-        transform: scale(1); 
-        background: #fff;
-        color: #0b84ff;
-        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
-      }
-      25% {
-        transform: scale(1.08);
-        background: #0b84ff;
-        color: #fff;
-        box-shadow: 0 0 0 10px rgba(11, 132, 255, 0.3);
-      }
-      50% { 
-        transform: scale(1.05);
-        background: #ff4081;
-        color: #fff;
-        box-shadow: 0 0 0 15px rgba(255, 64, 129, 0.2);
-      }
-      75% {
-        transform: scale(1.08);
-        background: #0b84ff;
-        color: #fff;
-        box-shadow: 0 0 0 10px rgba(11, 132, 255, 0.3);
-      }
-      100% { 
-        transform: scale(1); 
-        background: #fff;
-        color: #0b84ff;
-        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
-      }
-    }
-    
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-      20%, 40%, 60%, 80% { transform: translateX(5px); }
-    }
-    
-    .super-pulse-animation {
-      animation: superPulse 2.5s infinite;
-    }
-    
-    @keyframes confetti {
-      0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
-      100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
-    }
-    
-    @keyframes thankYouPulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-      100% { transform: scale(1); }
-    }
-    
-    .confetti {
-      position: fixed;
-      width: 10px;
-      height: 10px;
-      background-color: #f00;
-      animation: confetti 5s linear forwards;
-      z-index: 999;
-    }
-    
-    .thank-you-pulse {
-      animation: thankYouPulse 2s infinite;
-    }
-    
-    @keyframes cameraAppear {
-      0% { opacity: 0; transform: scale(0.9); }
-      100% { opacity: 1; transform: scale(1); }
-    }
-    
-    .camera-appear {
-      animation: cameraAppear 0.5s ease-out forwards;
-    }
+    @keyframes superPulse {0%{transform:scale(1);background:#fff;color:#0b84ff;box-shadow:0 0 0 0 rgba(255,255,255,0.7);}25%{transform:scale(1.08);background:#0b84ff;color:#fff;box-shadow:0 0 0 10px rgba(11,132,255,0.3);}50%{transform:scale(1.05);background:#ff4081;color:#fff;box-shadow:0 0 0 15px rgba(255,64,129,0.2);}75%{transform:scale(1.08);background:#0b84ff;color:#fff;box-shadow:0 0 0 10px rgba(11,132,255,0.3);}100%{transform:scale(1);background:#fff;color:#0b84ff;box-shadow:0 0 0 0 rgba(255,255,255,0);}}
+    .super-pulse-animation{animation:superPulse 2.5s infinite;}
   </style>
 </head>
 <body>
-  <!-- ENTER FULLSCREEN -->
   <div id="enterFs" class="screen visible" style="background:linear-gradient(135deg,#001e3c,#0b84ff)">
     <div style="text-align:center;background:rgba(0,0,0,0.3);padding:20px;border-radius:15px;backdrop-filter:blur(10px);width:95%;max-width:400px">
       <img src="logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
@@ -160,7 +47,6 @@
     </div>
   </div>
 
-  <!-- WELCOME SCREEN -->
   <div id="welcomeScreen" class="screen hidden" style="background:linear-gradient(135deg,#001e3c,#0b84ff)">
     <div id="welcome">
       <img src="logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
@@ -170,18 +56,12 @@
     </div>
   </div>
 
-  <!-- CAMERA VIEW -->
   <video id="videoEl" autoplay playsinline muted></video>
   <canvas id="canvasEl"></canvas>
-  
-  <!-- PROGRESSO - AGORA VISÍVEL -->
   <div id="progress" class="hidden"></div>
-  
-  <!-- COUNTDOWN -->
   <div id="countdown"></div>
   <div id="msg"></div>
 
-  <!-- ✅ CORREÇÃO: PREVIEW SCREEN - TELA CHEIA -->
   <div id="previewScreen" class="screen hidden">
     <div id="previewContainer">
       <img id="previewImage" src="" alt="Preview da foto">
@@ -192,7 +72,6 @@
     </div>
   </div>
 
-  <!-- THANK YOU SCREEN -->
   <div id="thankScreen" class="screen hidden" style="background:linear-gradient(135deg,#001e3c,#0b84ff)">
     <div id="thank">
       <img src="logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
@@ -203,34 +82,20 @@
 
   <div id="debugInfo"></div>
 
-  <!-- ÁUDIOS -->
   <audio id="clack" src="clack.mp3" preload="auto"></audio>
   <audio id="inicio" src="inicio.mp3" preload="auto"></audio>
   <audio id="fim" src="fim.mp3" preload="auto"></audio>
 
   <script>
-    const SERVER_URL = "https://agoraequeeuquerover.onrender.com";
-    
-    const socket = io(SERVER_URL, {
-      transports: ['polling', 'websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      timeout: 20000,
-      forceNew: true,
-      withCredentials: true
-    });
+    const SERVER_URL = "https://agoraequeeuquerover-production.up.railway.app";
+    const socket = io(SERVER_URL, { transports:["websocket"], reconnection:true, reconnectionAttempts:5, reconnectionDelay:1000, timeout:20000, forceNew:true, withCredentials:true });
 
     const params = new URLSearchParams(location.search);
     const session = params.get('session');
-    
-    const debugEl = document.getElementById('debugInfo');
-    function updateDebugInfo() {
-      debugEl.textContent = `Sessão: ${session || 'none'} | Socket: ${socket.connected ? '🟢' : '🔴'}`;
-    }
-    setInterval(updateDebugInfo, 1000);
 
-    // Elementos da interface
+    const debugEl = document.getElementById('debugInfo');
+    setInterval(()=>{debugEl.textContent=`Sessão: ${session||'none'} | Socket: ${socket.connected?'🟢':'🔴'}`},1000);
+
     const enterFs = document.getElementById('enterFs');
     const enterFsBtn = document.getElementById('enterFsBtn');
     const welcomeScreen = document.getElementById('welcomeScreen');
@@ -239,488 +104,88 @@
     const canvasEl = document.getElementById('canvasEl');
     const progressEl = document.getElementById('progress');
     const countdownEl = document.getElementById('countdown');
-    const msgEl = document.getElementById('msg');
     const previewScreen = document.getElementById('previewScreen');
     const previewImage = document.getElementById('previewImage');
     const refazerBtn = document.getElementById('refazerBtn');
     const continuarBtn = document.getElementById('continuarBtn');
     const thankScreen = document.getElementById('thankScreen');
-    
-    // ÁUDIOS
     const clack = document.getElementById('clack');
     const inicio = document.getElementById('inicio');
     const fim = document.getElementById('fim');
 
-    // ✅ CORREÇÃO: Forçar carregamento dos áudios
-    window.addEventListener('load', () => {
-      console.log('🔊 Forçando carregamento dos áudios...');
-      clack.load();
-      inicio.load();
-      fim.load();
-    });
+    let stream=null, photos=[], currentPhotoIndex=0, currentPhotoData=null;
 
-    let stream = null;
-    let photos = [];
-    let currentPhotoIndex = 0;
-    let currentPhotoData = null;
-
-    // Controle de estado das telas
-    function showScreen(screenElement) {
-      [enterFs, welcomeScreen, previewScreen, thankScreen].forEach(screen => {
-        if (screen && !screen.classList.contains('hidden')) {
-          if (screen.id !== 'enterFs') {
-            screen.classList.add('screen-animate-out');
-            setTimeout(() => {
-              screen.classList.remove('screen-animate-out');
-              screen.classList.add('hidden');
-              screen.classList.remove('visible');
-              screen.style.display = 'none';
-            }, 500);
-          } else {
-            screen.classList.add('hidden');
-            screen.classList.remove('visible');
-            screen.style.display = 'none';
-          }
-        }
+    function showScreen(screenElement){
+      [enterFs,welcomeScreen,previewScreen,thankScreen].forEach(s=>{
+        if(s && !s.classList.contains('hidden')){s.classList.add('hidden');s.classList.remove('visible');s.style.display='none';}
       });
-      
-      videoEl.style.display = 'none';
-      canvasEl.style.display = 'none';
-      countdownEl.textContent = '';
-      msgEl.textContent = '';
-      
-      // ✅ CORREÇÃO: Esconder progresso na tela de preview
-      if (screenElement && screenElement.id === 'previewScreen') {
-        progressEl.classList.add('hidden');
-      }
-      
-      if (screenElement) {
-        screenElement.classList.remove('hidden');
-        screenElement.classList.add('visible');
-        screenElement.style.display = 'flex';
-        
-        if (screenElement.id !== 'enterFs') {
-          screenElement.classList.add('screen-animate-in');
-          setTimeout(() => {
-            screenElement.classList.remove('screen-animate-in');
-          }, 500);
-        }
-        
-        if (screenElement.id === 'welcomeScreen') {
-          setTimeout(() => {
-            startBtn.classList.add('super-pulse-animation');
-          }, 600);
-        } else {
-          startBtn.classList.remove('super-pulse-animation');
-        }
-        
-        if (screenElement.id === 'thankScreen') {
-          setTimeout(() => {
-            createConfetti();
-            document.querySelector('#thank').classList.add('thank-you-pulse');
-            
-            setTimeout(() => {
-              try { 
-                console.log('🎵 Tocando áudio fim...');
-                fim.currentTime = 0; 
-                fim.play().catch(e => console.log('🔇 Audio fim não pode ser reproduzido:', e));
-              } catch(e){ 
-                console.log('🔇 Audio fim não pode ser reproduzido');
-              }
-            }, 300);
-          }, 600);
-        }
-      }
+      videoEl.style.display='none'; canvasEl.style.display='none'; countdownEl.textContent=''; progressEl.classList.add('hidden');
+      if(screenElement){screenElement.classList.remove('hidden'); screenElement.classList.add('visible'); screenElement.style.display='flex';}
     }
 
-    // Função para criar efeito de confete
-    function createConfetti() {
-      const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
-      const confettiCount = 50;
-      
-      for (let i = 0; i < confettiCount; i++) {
-        const confetti = document.createElement('div');
-        confetti.classList.add('confetti');
-        confetti.style.left = Math.random() * 100 + 'vw';
-        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-        confetti.style.width = Math.random() * 10 + 5 + 'px';
-        confetti.style.height = Math.random() * 10 + 5 + 'px';
-        confetti.style.animationDelay = Math.random() * 5 + 's';
-        
-        document.body.appendChild(confetti);
-        
-        setTimeout(() => {
-          confetti.remove();
-        }, 5000);
-      }
+    function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+    async function startCamera(){
+      try{
+        stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{exact:"user"}},audio:false});
+        videoEl.srcObject=stream; videoEl.style.display='block'; videoEl.style.transform='scaleX(-1)';
+        await videoEl.play();
+      }catch(e){alert('Não foi possível acessar a câmera. Verifique as permissões.'); showScreen(welcomeScreen);}
     }
 
-    // Socket.IO events
-    socket.on('connect', () => {
-      console.log('✅ Celular conectado ao servidor');
-      updateDebugInfo();
-      
-      if (session) {
-        socket.emit('cell_connected');
-        console.log('✅ Celular conectado à sessão fixa:', session);
-      }
-    });
-
-    socket.on('disconnect', () => {
-      console.log('❌ Celular desconectado');
-      updateDebugInfo();
-    });
-
-    socket.on('connect_error', (error) => {
-      console.error('❌ Erro de conexão celular:', error);
-      updateDebugInfo();
-    });
-
-    // Estado inicial
-    showScreen(enterFs);
-
-    enterFsBtn.addEventListener('click', async () => {
-      try {
-        const el = document.documentElement;
-        if (el.requestFullscreen) await el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-        else if (el.mozRequestFullScreen) await el.mozRequestFullScreen();
-        else if (el.msRequestFullscreen) await el.msRequestFullscreen();
-      } catch (e) { 
-        console.warn('fullscreen failed', e); 
-      }
-      
-      showScreen(welcomeScreen);
-
-      if (session) {
-        socket.emit('cell_entered_fullscreen');
-        console.log('📵 Celular em tela cheia - notificado servidor');
-      }
-    });
-
-    // ✅ CORREÇÃO: Esperar o áudio de início terminar COMPLETAMENTE antes de começar
-    startBtn.addEventListener('click', async () => {
-      // Desabilitar o botão para evitar múltiplos cliques
-      startBtn.disabled = true;
-      startBtn.textContent = '🎵 Preparando...';
-      
-      try { 
-        console.log('🎵 Tocando áudio inicio...');
-        inicio.currentTime = 0; 
-        
-        // ✅ CORREÇÃO: Esperar o áudio tocar e terminar COMPLETAMENTE
-        await new Promise((resolve, reject) => {
-          const playAudio = async () => {
-            try {
-              await inicio.play();
-              console.log('✅ Áudio inicio começou a tocar');
-              
-              // Aguardar o áudio terminar
-              inicio.onended = () => {
-                console.log('✅ Áudio inicio terminou completamente');
-                resolve();
-              };
-              
-              inicio.onerror = (e) => {
-                console.log('🔇 Erro no áudio inicio:', e);
-                resolve(); // Continua mesmo se o áudio falhar
-              };
-              
-              // Timeout de segurança - se o áudio não terminar em 12 segundos, continua
-              setTimeout(() => {
-                console.log('⏰ Timeout do áudio inicio - continuando...');
-                resolve();
-              }, 12000);
-              
-            } catch (playError) {
-              console.log('🔇 Não foi possível reproduzir áudio inicio:', playError);
-              resolve(); // Continua mesmo se o áudio falhar
-            }
-          };
-          
-          playAudio();
-        });
-        
-      } catch(e){ 
-        console.log('🔇 Audio inicio não pode ser reproduzido:', e);
-      }
-      
-      // Restaurar botão
-      startBtn.disabled = false;
-      startBtn.textContent = '🎬 Iniciar Sessão de Fotos';
-      
-      startBtn.style.animation = 'shake 0.5s';
-      
-      setTimeout(async () => {
-        startBtn.style.animation = '';
-        
-        console.log('🚀 Iniciando câmera e sequência de fotos...');
-        showScreen(null);
-        await startCamera();
-        currentPhotoIndex = 0;
-        photos = [];
-        await runCaptureSequence();
-      }, 500);
-    });
-
-    async function startCamera() {
-      try {
-        console.log('📷 Tentando acessar câmera frontal...');
-        
-        const constraints = {
-          video: { 
-            facingMode: { exact: "user" },
-            width: { ideal: 3264, max: 3264 },
-            height: { ideal: 1836, max: 1836 },
-            aspectRatio: { ideal: 16/9 },
-            frameRate: { ideal: 30 }
-          }, 
-          audio: false 
-        };
-
-        console.log('🔧 Solicitando permissão da câmera...');
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        console.log('✅ Permissão concedida, configurando vídeo...');
-        videoEl.srcObject = stream;
-        videoEl.style.transform = 'scaleX(-1)';
-        videoEl.style.display = 'block';
-        videoEl.classList.add('camera-appear');
-        
-        return new Promise((resolve, reject) => {
-          videoEl.onloadedmetadata = () => {
-            console.log('✅ Vídeo carregado - Dimensões:', videoEl.videoWidth, 'x', videoEl.videoHeight);
-            
-            videoEl.play().then(() => {
-              console.log('✅ Vídeo está reproduzindo');
-              setTimeout(() => {
-                videoEl.classList.remove('camera-appear');
-              }, 500);
-              resolve();
-            }).catch(e => {
-              console.error('❌ Erro ao reproduzir vídeo:', e);
-              reject(e);
-            });
-          };
-          
-          videoEl.onerror = () => {
-            console.error('❌ Erro no elemento de vídeo');
-            reject(new Error('Erro no elemento de vídeo'));
-          };
-          
-          setTimeout(() => {
-            if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
-              console.log('✅ Vídeo carregado via timeout');
-              setTimeout(() => {
-                videoEl.classList.remove('camera-appear');
-              }, 500);
-              resolve();
-            } else {
-              reject(new Error('Timeout ao carregar câmera'));
-            }
-          }, 5000);
-        });
-        
-      } catch (e) {
-        console.error('❌ Erro ao acessar a câmera:', e);
-        
-        try {
-          console.log('🔄 Tentando configuração alternativa da câmera...');
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-              facingMode: { exact: "user" }
-            },
-            audio: false 
-          });
-          
-          videoEl.srcObject = stream;
-          videoEl.style.display = 'block';
-          videoEl.style.transform = 'scaleX(-1)';
-          videoEl.classList.add('camera-appear');
-          console.log('✅ Câmera alternativa iniciada');
-          
-          setTimeout(() => {
-            videoEl.classList.remove('camera-appear');
-          }, 500);
-        } catch (err) {
-          console.error('❌ Erro na câmera alternativa:', err);
-          alert('Não foi possível acessar a câmera. Verifique as permissões do navegador.');
-          showScreen(welcomeScreen);
-        }
-      }
-    }
-
-    function stopCamera() {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        stream = null;
-      }
-      videoEl.style.display = 'none';
-      canvasEl.style.display = 'none';
-    }
-
-    function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
-
-    // ✅ CORREÇÃO: Mostrar preview da foto em TELA CHEIA
-    function showPhotoPreview(photoData) {
-      previewImage.src = photoData;
-      showScreen(previewScreen);
-    }
-
-    // ✅ CORREÇÃO COMPLETA: Capturar uma única foto com clack funcionando
-    async function captureSinglePhoto() {
-      console.log(`📸 Capturando foto ${currentPhotoIndex + 1}/3`);
-      
-      // ✅ CORREÇÃO: Progresso agora VISÍVEL
-      progressEl.textContent = `${currentPhotoIndex + 1}/3`;
-      progressEl.classList.remove('hidden');
-      
-      // Mostrar contagem regressiva
-      videoEl.style.display = 'block';
-      
-      for (let t = 5; t > 0; t--) {
-        if (t <= 2) {
-          countdownEl.textContent = 'SORRIA!';
-          countdownEl.style.color = '#ffd600';
-          
-          // ✅ CORREÇÃO: Clack funcionando - toca quando t=2 (2 segundos antes da foto)
-          if (t === 2) {
-            console.log('📸 Clack! (2 segundos antes)');
-            // Reproduzir clack imediatamente quando chegar em 2
-            try {
-              clack.currentTime = 0;
-              await clack.play().catch(e => {
-                console.log('🔇 Clack não pode ser reproduzido (tentativa 1):', e);
-                // Segunda tentativa após pequeno delay
-                setTimeout(() => {
-                  clack.currentTime = 0;
-                  clack.play().catch(e2 => console.log('🔇 Clack não pode ser reproduzido (tentativa 2):', e2));
-                }, 100);
-              });
-            } catch(e) {
-              console.log('🔇 Clack não pode ser reproduzido:', e);
-            }
-          }
-        } else {
-          countdownEl.textContent = String(t);
-          countdownEl.style.color = '#fff';
-        }
+    async function captureSinglePhoto(){
+      progressEl.textContent=`${currentPhotoIndex+1}/3`; progressEl.classList.remove('hidden'); videoEl.style.display='block';
+      for(let t=5;t>0;t--){ 
+        if(t<=2){ countdownEl.textContent='SORRIA!'; countdownEl.style.color='#ffd600'; if(t===2){clack.currentTime=0; clack.play().catch(()=>{});} } 
+        else{ countdownEl.textContent=String(t); countdownEl.style.color='#fff'; } 
         await sleep(1000);
       }
-      
-      countdownEl.textContent = '';
-      
-      // Capturar foto
-      canvasEl.width = videoEl.videoWidth;
-      canvasEl.height = videoEl.videoHeight;
-      const ctx = canvasEl.getContext('2d');
-      
-      ctx.translate(canvasEl.width, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-      
-      const data = canvasEl.toDataURL('image/jpeg', 1.0);
-      console.log(`✅ Foto ${currentPhotoIndex + 1} capturada: ${canvasEl.width}x${canvasEl.height}`);
-      
-      return data;
+      canvasEl.width=videoEl.videoWidth; canvasEl.height=videoEl.videoHeight;
+      const ctx=canvasEl.getContext('2d'); ctx.translate(canvasEl.width,0); ctx.scale(-1,1); ctx.drawImage(videoEl,0,0,canvasEl.width,canvasEl.height);
+      return canvasEl.toDataURL('image/jpeg',1.0);
     }
 
-    // ✅ FUNÇÃO PRINCIPAL MODIFICADA: Sequência de captura com preview
-    async function runCaptureSequence() {
-      if (currentPhotoIndex >= 3) {
-        // Todas as fotos foram capturadas
-        stopCamera();
-        progressEl.classList.add('hidden');
-        showScreen(thankScreen);
-        sendPhotosToServer();
-        return;
-      }
-      
-      currentPhotoData = await captureSinglePhoto();
+    function showPhotoPreview(photoData){ previewImage.src=photoData; showScreen(previewScreen); }
+
+    async function runCaptureSequence(){
+      if(currentPhotoIndex>=3){stopCamera(); progressEl.classList.add('hidden'); showScreen(thankScreen); sendPhotosToServer(); return;}
+      currentPhotoData=await captureSinglePhoto();
       showPhotoPreview(currentPhotoData);
     }
 
-    // ✅ EVENTOS DOS BOTÕES DE PREVIEW
-    refazerBtn.addEventListener('click', async () => {
-      console.log('🔄 Refazendo foto...');
-      showScreen(null);
-      videoEl.style.display = 'block';
-      // Não incrementa o índice, refaz a mesma foto
-      await runCaptureSequence();
-    });
+    function stopCamera(){ if(stream){stream.getTracks().forEach(t=>t.stop()); stream=null;} videoEl.style.display='none'; canvasEl.style.display='none'; }
 
-    continuarBtn.addEventListener('click', async () => {
-      console.log('✅ Continuando para próxima foto...');
-      photos.push(currentPhotoData);
-      currentPhotoIndex++;
-      showScreen(null);
-      videoEl.style.display = 'block';
-      await runCaptureSequence();
-    });
+    refazerBtn.addEventListener('click',async()=>{ showScreen(null); videoEl.style.display='block'; await runCaptureSequence(); });
+    continuarBtn.addEventListener('click',async()=>{ photos.push(currentPhotoData); currentPhotoIndex++; showScreen(null); videoEl.style.display='block'; await runCaptureSequence(); });
 
-    // ✅ FUNÇÃO: Enviar fotos para o servidor
-    function sendPhotosToServer() {
-      if (session && photos.length > 0) {
-        console.log(`📤🔁 ENVIANDO ${photos.length} FOTOS - MÚLTIPLAS TENTATIVAS`);
-        
-        const sendPhotosWithRetry = (attempt = 1, maxAttempts = 5) => {
-          if (socket.connected) {
-            console.log(`🔄 Tentativa ${attempt}/${maxAttempts} de envio...`);
-            
-            socket.emit('photos_from_cell', { 
-              photos,
-              attempt: attempt,
-              totalAttempts: maxAttempts
-            });
-            
-            console.log(`✅ Tentativa ${attempt} enviada`);
-            console.log(`📊 Detalhes: ${photos.length} fotos, sessão fixa: ${session}`);
-            
-            if (attempt < maxAttempts) {
-              setTimeout(() => {
-                sendPhotosWithRetry(attempt + 1, maxAttempts);
-              }, 1500);
-            }
-            
-          } else {
-            console.error(`❌ Socket desconectado na tentativa ${attempt}`);
-            
-            if (attempt < maxAttempts) {
-              console.log('🔄 Tentando reconectar socket...');
-              socket.connect();
-              
-              setTimeout(() => {
-                sendPhotosWithRetry(attempt + 1, maxAttempts);
-              }, 2000);
-            }
-          }
+    function sendPhotosToServer(){
+      if(session && photos.length>0){
+        const sendPhotosWithRetry=(attempt=1,maxAttempts=5)=>{
+          if(socket.connected){ socket.emit('photos_from_cell',{photos,attempt,totalAttempts:maxAttempts}); 
+            if(attempt<maxAttempts){ setTimeout(()=>sendPhotosWithRetry(attempt+1,maxAttempts),1500);}
+          }else if(attempt<maxAttempts){ socket.connect(); setTimeout(()=>sendPhotosWithRetry(attempt+1,maxAttempts),2000);}
         };
-        
-        sendPhotosWithRetry(1, 5);
-        
-      } else {
-        console.error('❌❌❌ FALHA CRÍTICA: Não pode enviar fotos');
+        sendPhotosWithRetry();
       }
     }
 
-    // Quando resetar sessão
-    socket.on('reset_session', () => {
-      console.log('🔄 Reset session recebido - voltando para tela de welcome');
-      
-      stopCamera();
-      canvasEl.style.display = 'none';
-      videoEl.style.display = 'none';
-      countdownEl.textContent = '';
-      msgEl.textContent = '';
-      progressEl.classList.add('hidden');
-      
-      currentPhotoIndex = 0;
-      photos = [];
-      currentPhotoData = null;
-      
+    socket.on('connect',()=>{ if(session) socket.emit('cell_connected'); });
+    socket.on('disconnect',()=>{});
+    socket.on('reset_session',()=>{ stopCamera(); currentPhotoIndex=0; photos=[]; currentPhotoData=null; showScreen(welcomeScreen); });
+
+    showScreen(enterFs);
+
+    enterFsBtn.addEventListener('click',async()=>{
+      try{ await document.documentElement.requestFullscreen(); }catch(e){}
       showScreen(welcomeScreen);
-      
-      console.log('✅ Celular resetado para tela de welcome');
+      if(session) socket.emit('cell_entered_fullscreen');
+    });
+
+    startBtn.addEventListener('click',async()=>{
+      startBtn.disabled=true; startBtn.textContent='🎵 Preparando...';
+      await inicio.play().catch(()=>{});
+      startBtn.disabled=false; startBtn.textContent='🎬 Iniciar Sessão de Fotos';
+      showScreen(null); await startCamera(); currentPhotoIndex=0; photos=[]; await runCaptureSequence();
     });
   </script>
 </body>
