@@ -10,7 +10,7 @@ const app = express();
 app.use((req, res, next) => {
   const allowedOrigins = [
     'https://agoraequeeuquerover.vercel.app',
-    'https://agoraequeeuquerover.onrender.com',
+    'https://agoraequeeuquerover-production.up.railway.app',
     'http://localhost:3000',
     'http://localhost:10000'
   ];
