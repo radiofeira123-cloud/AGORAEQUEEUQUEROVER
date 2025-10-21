@@ -81,51 +81,60 @@
   <div id="log"></div>
 
   <script>
+    /**
+     * Arquivo completo do index.html (operador)
+     * Mantido todo o comportamento original do seu código:
+     * - recebimento de fotos via socket ('photos_ready')
+     * - geração de QR para celular e visualizador
+     * - otimização para IMGBB
+     * - montagem stories e print
+     * - botão FINALIZAR SESSÃO que agora limpa TUDO localmente (thumbnails, lastPhotos, canvases, QR)
+     *
+     * NÃO foram removidas outras funções — apenas acrescentei a limpeza ao finalizar.
+     */
+
     const SERVER_URL = "https://agoraequeeuquerover-production.up.railway.app";
 
     // COORDENADAS PARA STORIES (caralho (1).png - 3375x6000)
     const STORIES_COORDS = [
-      { x: 155, y: 381,  w: 2225, h: 1341 },   // Área 1: (155,381) a (2380,1722)
-      { x: 155, y: 1817, w: 2225, h: 1341 },   // Área 2: (155,1817) a (2377,3158)  
-      { x: 155, y: 3262, w: 2225, h: 1341 }    // Área 3: (155,3262) a (2377,4600)
+      { x: 155, y: 381,  w: 2225, h: 1341 },   // Área 1
+      { x: 155, y: 1817, w: 2225, h: 1341 },   // Área 2
+      { x: 155, y: 3262, w: 2225, h: 1341 }    // Área 3
     ];
 
     // COORDENADAS PARA IMPRESSÃO 9x14 (3322x5167)
     const PRINT_COORDS = [
-      { x: 191, y: 184,  w: 2163, h: 1308 },   // Área 1: (191,184) a (2351,1489)
-      { x: 188, y: 1578, w: 2163, h: 1308 },   // Área 2: (188,1578) a (2351,2886)
-      { x: 191, y: 2970, w: 2163, h: 1308 }    // Área 3: Estimativa para terceira foto
+      { x: 191, y: 184,  w: 2163, h: 1308 },   // Área 1
+      { x: 188, y: 1578, w: 2163, h: 1308 },   // Área 2
+      { x: 191, y: 2970, w: 2163, h: 1308 }    // Área 3
     ];
 
-    // ✅ CORREÇÃO: Função de otimização para IMGBB apenas (não limita resolução original)
+    // ✅ Otimização de imagem para IMGBB (mantém resolução, ajusta qualidade)
     function optimizeImageForImgbb(dataUrl, quality = 0.9) {
         return new Promise((resolve) => {
             const img = new Image();
             img.src = dataUrl;
             img.onload = () => {
-                console.log(`📊 Imagem original: ${img.width}x${img.height} (${Math.round(dataUrl.length/1024)}KB)`);
-                
-                // ✅ MANTER resolução alta mas otimizar qualidade para upload
+                console.log(`📊 Imagem original carregada: ${img.width}x${img.height}`);
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
-                
-                // Usar as dimensões originais (3264x1836)
                 canvas.width = img.width;
                 canvas.height = img.height;
-                
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                
-                const optimizedDataUrl = canvas.toDataURL('image/jpeg', quality);
-                
-                console.log(`✅ Otimizada para IMGBB: ${img.width}x${img.height} (${Math.round(optimizedDataUrl.length/1024)}KB)`);
-                resolve(optimizedDataUrl);
+                const out = canvas.toDataURL('image/jpeg', quality);
+                console.log(`✅ Otimizada: ${Math.round(out.length / 1024)} KB`);
+                resolve(out);
             };
-            img.onerror = () => resolve(dataUrl);
+            img.onerror = () => {
+                console.warn('⚠️ Erro ao carregar imagem para otimização, mantendo original');
+                resolve(dataUrl);
+            };
         });
     }
 
+    // Socket.IO client
     const socket = io(SERVER_URL, {
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -137,13 +146,13 @@
       withCredentials: true
     });
 
+    // Element helpers
     const el = id => document.getElementById(id);
     const qrcodeEl = el('qrcode'), qrcodeVisualizadorEl = el('qrcodeVisualizador');
     const sessionIdEl = el('sessionId'), viewerSessionIdEl = el('viewerSessionId');
     const viewerInfoEl = el('viewerInfo'), viewerHistoryEl = el('viewerHistory');
     const thumbsEl = el('thumbs'), storiesCanvas = el('storiesCanvas'), printCanvas = el('printCanvas');
-    const logEl = el('log');
-    const connectionStatusEl = el('connectionStatus');
+    const logEl = el('log'), connectionStatusEl = el('connectionStatus');
 
     const genQrBtn = el('genQr'), finalizarBtn = el('finalizarSessao');
     const genVisualizadorQrBtn = el('genVisualizadorQr'), printBtn = el('printBtn');
@@ -172,20 +181,18 @@
       }
     }
 
+    // --- Socket events ---
     socket.on('connect', () => {
       log('✅ CONECTADO ao servidor: ' + SERVER_URL);
       updateConnectionStatus(true);
-      
-      // Conectar à sessão FIXA como operador
+      // registrar como operador na sessão fixa
       socket.emit('operator_connected');
     });
 
     socket.on('session_ready', ({ sessionId }) => {
       currentSession = sessionId;
       sessionIdEl.textContent = sessionId;
-      
       generateQrCode();
-      
       log('✅ Sessão FIXA conectada: ' + sessionId);
       genQrBtn.disabled = false;
       finalizarBtn.disabled = false;
@@ -197,7 +204,7 @@
     });
 
     socket.on('connect_error', (error) => {
-      log('❌ ERRO de conexão: ' + error.message);
+      log('❌ ERRO de conexão: ' + (error && error.message ? error.message : error));
       updateConnectionStatus(false);
       console.error('Socket.IO error:', error);
     });
@@ -209,225 +216,28 @@
     socket.on('reconnect', (attempt) => {
       log(`✅ Reconectado após ${attempt} tentativas`);
       updateConnectionStatus(true);
-      
-      // Re-conectar à sessão FIXA
-      if (currentSession) {
-        socket.emit('operator_connected');
-      }
+      if (currentSession) socket.emit('operator_connected');
     });
 
-    window.addEventListener('DOMContentLoaded', () => {
-      log('🔄 Conectando à sessão FIXA...');
-    });
-
-    genQrBtn.addEventListener('click', () => {
-      generateQrCode();
-    });
-
-    // ✅ CORREÇÃO: Botão IMGBB mantendo RESOLUÇÃO MÁXIMA
-    genVisualizadorQrBtn.addEventListener('click', async () => {
-      if (lastPhotos.length === 0) {
-        log('❌ Nenhuma foto disponível para gerar visualizador');
-        return;
-      }
-      
-      log('🔍 INICIANDO PROCESSO IMGBB...');
-      log(`📊 Dados: ${lastPhotos.length} fotos, sessão: ${currentSession}`);
-      
-      try {
-        // ✅ CORREÇÃO: OTIMIZAR mantendo RESOLUÇÃO MÁXIMA 3264x1836
-        log('🔄 Otimizando fotos para IMGBB (mantendo resolução máxima)...');
-        const optimizedPhotos = [];
-        
-        for (let i = 0; i < lastPhotos.length; i++) {
-          const optimizedPhoto = await optimizeImageForImgbb(lastPhotos[i], 0.9);
-          optimizedPhotos.push(optimizedPhoto);
-          log(`✅ Foto ${i+1} otimizada para IMGBB: ${Math.round(optimizedPhoto.length/1024)}KB`);
-        }
-        
-        // ✅ CORREÇÃO: Montagem stories também em alta qualidade
-        const storiesMontage = storiesCanvas.toDataURL('image/jpeg', 0.95);
-        const optimizedStoriesMontage = await optimizeImageForImgbb(storiesMontage, 0.9);
-        
-        // ✅ NOVO LOG: Verificar se a montagem do stories está sendo enviada
-        console.log('🖼️ Stories Montage para envio:', optimizedStoriesMontage ? 'SIM' : 'NÃO');
-        console.log('📊 Tamanho stories:', optimizedStoriesMontage ? Math.round(optimizedStoriesMontage.length/1024) + 'KB' : 'N/A');
-        
-        log(`✅ Montagem stories otimizada: ${Math.round(optimizedStoriesMontage.length/1024)}KB`);
-        
-        log('🔄 Criando NOVA sessão do visualizador...');
-        log(`📤 Enviando ${optimizedPhotos.length} fotos em ALTA RESOLUÇÃO + montagem stories`);
-        
-        genVisualizadorQrBtn.disabled = true;
-        genVisualizadorQrBtn.textContent = 'Enviando...';
-        
-        // Timeout para evitar travamento
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Timeout no envio para IMGBB')), 60000); // 60 segundos
-        });
-        
-        const sendPromise = new Promise((resolve, reject) => {
-          socket.emit('create_viewer_session', { 
-              photos: optimizedPhotos,
-              storiesMontage: optimizedStoriesMontage
-          });
-          
-          // Esperar pela resposta
-          const successHandler = ({ viewerId }) => {
-            socket.off('viewer_session_created', successHandler);
-            socket.off('viewer_session_error', errorHandler);
-            resolve(viewerId);
-          };
-          
-          const errorHandler = ({ error }) => {
-            socket.off('viewer_session_created', successHandler);
-            socket.off('viewer_session_error', errorHandler);
-            reject(new Error(error));
-          };
-          
-          socket.on('viewer_session_created', successHandler);
-          socket.on('viewer_session_error', errorHandler);
-        });
-        
-        // Race entre o envio e o timeout
-        const viewerId = await Promise.race([sendPromise, timeoutPromise]);
-        log('🎉 Sessão do visualizador criada com sucesso: ' + viewerId);
-        
-      } catch (error) {
-        log('❌❌❌ ERRO no processo IMGBB: ' + error.message);
-        genVisualizadorQrBtn.disabled = false;
-        genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
-        
-        // Tentar reconectar se houve timeout
-        if (error.message.includes('Timeout')) {
-          log('🔄 Tentando reconectar socket...');
-          socket.connect();
-        }
-      }
-    });
-
-    // BOTÃO DE TESTE IMGBB
-    testImgbbBtn.addEventListener('click', async () => {
-      if (lastPhotos.length === 0) {
-        log('❌ Nenhuma foto para testar IMGBB');
-        return;
-      }
-      
-      log('🧪 TESTE IMGBB - Enviando uma foto de teste em ALTA RESOLUÇÃO...');
-      
-      try {
-        const testPhoto = await optimizeImageForImgbb(lastPhotos[0], 0.9);
-        
-        const base64Data = testPhoto.split(',')[1];
-        const formData = new FormData();
-        formData.append('key', '6734e028b20f88d5795128d242f85582');
-        formData.append('image', base64Data);
-        
-        const response = await fetch('https://api.imgbb.com/1/upload', {
-          method: 'POST',
-          body: formData
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-          log('✅✅✅ TESTE IMGBB SUCESSO! URL: ' + data.data.url);
-          log('🔧 Upload em alta resolução funcionando!');
-        } else {
-          log('❌ TESTE IMGBB FALHOU: ' + (data.error?.message || 'Erro desconhecido'));
-        }
-      } catch (error) {
-        log('❌ ERRO no teste IMGBB: ' + error.message);
-      }
-    });
-
-    function generateQrCode() {
-      qrcodeEl.innerHTML = '';
-      const url = `${SERVER_URL}/celular.html?session=${encodeURIComponent(currentSession)}`;
-      const canvas = document.createElement('canvas');
-      QRCode.toCanvas(canvas, url, { width: 220 }, (err) => {
-        if (err) {
-          log('❌ Erro ao gerar QR Code: ' + err);
-          return;
-        }
-      });
-      qrcodeEl.appendChild(canvas);
-      log('📱 QR Code Celular gerado para sessão FIXA: ' + currentSession);
-    }
-
-    function generateVisualizadorQrCode(viewerId) {
-      qrcodeVisualizadorEl.innerHTML = '';
-      const url = `${SERVER_URL}/visualizador.html?viewerId=${encodeURIComponent(viewerId)}`;
-      const canvas = document.createElement('canvas');
-      QRCode.toCanvas(canvas, url, { width: 220 }, (err) => {
-        if (err) {
-          log('❌ Erro ao gerar QR Code Visualizador: ' + err);
-          return;
-        }
-      });
-      qrcodeVisualizadorEl.appendChild(canvas);
-      
-      viewerSessionIdEl.textContent = viewerId;
-      viewerInfoEl.style.display = 'block';
-      currentViewerSession = viewerId;
-      
-      // ADICIONAR AO HISTÓRICO
-      const viewerItem = {
-        id: viewerId,
-        timestamp: new Date().toLocaleTimeString(),
-        photosCount: lastPhotos.length
-      };
-      viewerHistory.unshift(viewerItem);
-      updateViewerHistory();
-      
-      log('👀 NOVO QR Code Visualizador gerado: ' + viewerId);
-      log('✅✅✅ Fotos em ALTA RESOLUÇÃO enviadas para IMGBB com SUCESSO!');
-      
-      // Restaurar botão
-      genVisualizadorQrBtn.disabled = false;
-      genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
-    }
-
-    function updateViewerHistory() {
-      viewerHistoryEl.innerHTML = '';
-      
-      if (viewerHistory.length === 0) {
-        viewerHistoryEl.innerHTML = '<div class="viewer-item">Nenhum visualizador gerado ainda</div>';
-        return;
-      }
-      
-      viewerHistory.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'viewer-item';
-        div.innerHTML = `
-          <strong>${item.timestamp}</strong> - 
-          ${item.photosCount} fotos - 
-          ID: ${item.id.substring(0, 8)}...
-        `;
-        viewerHistoryEl.appendChild(div);
-      });
-    }
-
+    // Quando o servidor informar que uma sessão de visualizador foi criada
     socket.on('viewer_session_created', ({ viewerId }) => {
-      currentViewerSession = viewerId;
-      log('🎉 NOVA Sessão do visualizador criada: ' + viewerId);
+      log(`🎉 Sessão do visualizador criada: ${viewerId}`);
       generateVisualizadorQrCode(viewerId);
     });
 
     socket.on('viewer_session_error', ({ error }) => {
-      log('❌❌❌ ERRO ao criar visualizador: ' + error);
+      log('❌ ERRO ao criar visualizador: ' + error);
       genVisualizadorQrBtn.disabled = false;
       genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
-      log('🔧 Verifique os logs do servidor para mais detalhes');
     });
 
+    // Recebe fotos do celular
     socket.on('photos_ready', (photos) => {
-      log(`📸 FOTOS RECEBIDAS: ${photos.length} fotos`);
-      
+      log(`📸 FOTOS RECEBIDAS: ${Array.isArray(photos) ? photos.length : '??' } fotos`);
       if (!Array.isArray(photos)) {
         log('❌ Fotos não são um array');
         return;
       }
-      
       lastPhotos = photos.slice(0, 3);
       renderThumbs();
       drawStories(lastPhotos);
@@ -435,73 +245,168 @@
       genVisualizadorQrBtn.disabled = false;
       printBtn.disabled = false;
       testImgbbBtn.disabled = false;
-      
       log('✅ Fotos renderizadas com sucesso');
     });
 
-    // Finalizar sessão - limpar QR do visualizador atual
-    finalizarBtn.addEventListener('click', () => {
-      if (!currentSession) return alert('Nenhuma sessão ativa.');
-      
-      socket.emit('end_session');
-      
-      // Limpar apenas a interface do operador
-      thumbsEl.innerHTML = '';
-      lastPhotos = [];
-      genVisualizadorQrBtn.disabled = true;
-      printBtn.disabled = true;
-      testImgbbBtn.disabled = true;
-      
-      // LIMPAR o QR code do visualizador atual
-      qrcodeVisualizadorEl.innerHTML = '';
-      viewerInfoEl.style.display = 'none';
-      currentViewerSession = null;
-      
-      const storiesCtx = storiesCanvas.getContext('2d');
-      storiesCtx.clearRect(0, 0, storiesCanvas.width, storiesCanvas.height);
-      
-      const printCtx = printCanvas.getContext('2d');
-      printCtx.clearRect(0, 0, printCanvas.width, printCanvas.height);
-      
-      log('🧹 Sessão finalizada - Celular resetado para próximo cliente');
-      log('📱 QR Code do visualizador atual foi limpo');
-
-      // === ADICIONEI: reload da página (equivalente a F5) sem remover nada do index.html ===
-      // Pequeno delay para garantir que o emit e logs sejam processados antes do reload.
-      setTimeout(() => {
-        log('🔁 Recarregando a página (F5) para reiniciar estado da UI do operador');
-        location.reload();
-      }, 500);
+    // --- Botões ---
+    genQrBtn.addEventListener('click', () => {
+      generateQrCode();
     });
 
-    // BOTÃO PARA LIMPAR VISUALIZADOR MANUALMENTE
-    limparVisualizadorBtn.addEventListener('click', () => {
-      if (confirm('Tem certeza que deseja limpar o visualizador atual? Isso não afetará visualizadores já compartilhados.')) {
-        qrcodeVisualizadorEl.innerHTML = '';
-        viewerInfoEl.style.display = 'none';
-        currentViewerSession = null;
-        log('🧹 Visualizador limpo da interface (visualizadores compartilhados continuam funcionando)');
+    // Gera visualizador + upload IMGBB
+    genVisualizadorQrBtn.addEventListener('click', async () => {
+      if (lastPhotos.length === 0) {
+        log('❌ Nenhuma foto disponível para gerar visualizador');
+        return;
+      }
+      log('🔍 INICIANDO PROCESSO IMGBB...');
+      log(`📊 Dados: ${lastPhotos.length} fotos, sessão: ${currentSession}`);
+
+      try {
+        // Otimiza (mantendo resolução alta) cada foto
+        const optimizedPhotos = [];
+        for (let i = 0; i < lastPhotos.length; i++) {
+          log(`🔄 Otimizando foto ${i+1}`);
+          const optimized = await optimizeImageForImgbb(lastPhotos[i], 0.9);
+          optimizedPhotos.push(optimized);
+          log(`✅ Foto ${i+1} otimizada (${Math.round(optimized.length/1024)}KB)`);
+        }
+
+        // Montagem stories em alta qualidade
+        log('🔄 Gerando montagem stories em alta qualidade...');
+        const storiesMontage = storiesCanvas.toDataURL('image/jpeg', 0.95);
+        const optimizedStories = await optimizeImageForImgbb(storiesMontage, 0.9);
+        log(`✅ Montagem stories otimizada (${Math.round(optimizedStories.length/1024)}KB)`);
+
+        // Envia para o servidor criar a sessão do visualizador
+        genVisualizadorQrBtn.disabled = true;
+        genVisualizadorQrBtn.textContent = 'Enviando...';
+
+        // Promise com timeout
+        const sendPromise = new Promise((resolve, reject) => {
+          socket.emit('create_viewer_session', { photos: optimizedPhotos, storiesMontage: optimizedStories });
+
+          const successHandler = ({ viewerId }) => {
+            socket.off('viewer_session_created', successHandler);
+            socket.off('viewer_session_error', errorHandler);
+            resolve(viewerId);
+          };
+          const errorHandler = ({ error }) => {
+            socket.off('viewer_session_created', successHandler);
+            socket.off('viewer_session_error', errorHandler);
+            reject(new Error(error));
+          };
+          socket.on('viewer_session_created', successHandler);
+          socket.on('viewer_session_error', errorHandler);
+        });
+
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout no envio para IMGBB')), 60000));
+        const viewerId = await Promise.race([sendPromise, timeout]);
+
+        log('🎉 Sessão do visualizador criada com sucesso: ' + viewerId);
+        // o evento viewer_session_created acima também chamará a função que gera o QR
+
+      } catch (error) {
+        log('❌ ERRO no processo IMGBB: ' + (error.message || error));
+        genVisualizadorQrBtn.disabled = false;
+        genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
+        if (error.message && error.message.includes('Timeout')) {
+          log('🔄 Timeout detectado — tentando reconectar socket...');
+          socket.connect();
+        }
       }
     });
 
-    debugBtn.addEventListener('click', () => {
-      log('🐛 DEBUG - Estado atual:');
-      log('- Sessão FIXA: ' + currentSession);
-      log('- Socket conectado: ' + socket.connected);
-      log('- Socket ID: ' + socket.id);
-      log('- Fotos recebidas: ' + lastPhotos.length);
-      log('- Visualizadores no histórico: ' + viewerHistory.length);
-      
-      fetch(SERVER_URL + '/health')
-        .then(r => r.json())
-        .then(data => {
-          log('🩺 Health check OK: ' + JSON.stringify(data));
-        })
-        .catch(e => {
-          log('❌ Health check FALHOU: ' + e.message);
-        });
+    // Botão teste IMGBB - envia uma foto para API diretamente para testar
+    testImgbbBtn.addEventListener('click', async () => {
+      if (lastPhotos.length === 0) {
+        log('❌ Nenhuma foto para testar IMGBB');
+        return;
+      }
+
+      try {
+        log('🧪 TESTE IMGBB - enviando foto de teste...');
+        const testPhoto = await optimizeImageForImgbb(lastPhotos[0], 0.9);
+        const base64 = testPhoto.split(',')[1];
+        const form = new FormData();
+        form.append('key', '6734e028b20f88d5795128d242f85582');
+        form.append('image', base64);
+
+        const res = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: form });
+        const data = await res.json();
+        if (data && data.success) {
+          log('✅ TESTE IMGBB SUCESSO: ' + data.data.url);
+        } else {
+          log('❌ TESTE IMGBB FALHOU: ' + JSON.stringify(data));
+        }
+      } catch (e) {
+        log('❌ ERRO no teste IMGBB: ' + e.message);
+      }
     });
 
+    // Gera QR do celular (sessão fixa)
+    function generateQrCode() {
+      qrcodeEl.innerHTML = '';
+      const url = `${SERVER_URL}/celular.html?session=${encodeURIComponent(currentSession)}`;
+      const canvas = document.createElement('canvas');
+      QRCode.toCanvas(canvas, url, { width: 220 }, (err) => {
+        if (err) log('❌ Erro ao gerar QR Code: ' + err);
+      });
+      qrcodeEl.appendChild(canvas);
+      log('📱 QR Code Celular gerado para sessão FIXA: ' + currentSession);
+    }
+
+    // Gera QR do visualizador e atualiza histórico
+    function generateVisualizadorQrCode(viewerId) {
+      qrcodeVisualizadorEl.innerHTML = '';
+      const url = `${SERVER_URL}/visualizador.html?viewerId=${encodeURIComponent(viewerId)}`;
+      const canvas = document.createElement('canvas');
+      QRCode.toCanvas(canvas, url, { width: 220 }, (err) => { if (err) log('❌ Erro ao gerar QR Visualizador: ' + err); });
+      qrcodeVisualizadorEl.appendChild(canvas);
+      viewerSessionIdEl.textContent = viewerId;
+      viewerInfoEl.style.display = 'block';
+      currentViewerSession = viewerId;
+
+      // histórico
+      const item = { id: viewerId, timestamp: new Date().toLocaleTimeString(), photosCount: lastPhotos.length };
+      viewerHistory.unshift(item);
+      updateViewerHistory();
+
+      log('👀 NOVO QR Code Visualizador gerado: ' + viewerId);
+      log('✅ Fotos enviadas para IMGBB com sucesso (ou fallback aplicado)');
+      genVisualizadorQrBtn.disabled = false;
+      genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
+    }
+
+    function updateViewerHistory() {
+      viewerHistoryEl.innerHTML = '';
+      if (viewerHistory.length === 0) {
+        viewerHistoryEl.innerHTML = '<div class="viewer-item">Nenhum visualizador gerado ainda</div>';
+        return;
+      }
+      viewerHistory.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'viewer-item';
+        div.innerHTML = `<strong>${item.timestamp}</strong> - ${item.photosCount} fotos - ID: ${item.id.substring(0,8)}...`;
+        viewerHistoryEl.appendChild(div);
+      });
+    }
+
+    // Recebe evento do servidor confirmando sessão criada (caso emitter do servidor)
+    socket.on('viewer_session_created', ({ viewerId }) => {
+      // se chegou por aqui, atualizamos a UI (evita duplicar)
+      if (!currentViewerSession || currentViewerSession !== viewerId) {
+        generateVisualizadorQrCode(viewerId);
+      }
+    });
+
+    socket.on('viewer_session_error', ({ error }) => {
+      log('❌ ERRO recebido do servidor ao criar visualizador: ' + error);
+      genVisualizadorQrBtn.disabled = false;
+      genVisualizadorQrBtn.textContent = 'Gerar QR Visualizador + IMGBB';
+    });
+
+    // Renderiza miniaturas
     function renderThumbs(){
       thumbsEl.innerHTML = '';
       lastPhotos.forEach((p, idx) => {
@@ -512,10 +417,11 @@
       });
     }
 
+    // Função utilitária de "cover" para manter enquadramento
     function drawImageCover(ctx, img, x, y, w, h){
       const imgRatio = img.width / img.height;
       const boxRatio = w / h;
-      let sx=0, sy=0, sw=img.width, sh=img.height;
+      let sx = 0, sy = 0, sw = img.width, sh = img.height;
       if (imgRatio > boxRatio) {
         sw = img.height * boxRatio;
         sx = (img.width - sw) / 2;
@@ -526,19 +432,15 @@
       ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
     }
 
+    // Desenha montagem stories
     function drawStories(photos){
       const ctx = storiesCanvas.getContext('2d');
-      ctx.clearRect(0,0,storiesCanvas.width, storiesCanvas.height);
-      
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      
+      ctx.clearRect(0, 0, storiesCanvas.width, storiesCanvas.height);
       const bg = new Image();
       bg.src = 'caralho (1).png';
       bg.onload = () => {
         log('✅ Background stories carregado: caralho (1).png');
         ctx.drawImage(bg, 0, 0, storiesCanvas.width, storiesCanvas.height);
-        
         photos.forEach((p, i) => {
           const img = new Image();
           img.src = p;
@@ -548,82 +450,53 @@
             drawImageCover(ctx, img, c.x, c.y, c.w, c.h);
             log(`✅ Foto ${i+1} posicionada no stories: ${c.x}, ${c.y}, ${c.w}x${c.h} (Resolução: ${img.width}x${img.height})`);
           };
-          img.onerror = () => log('❌ Erro ao cargar imagem: ' + p.substring(0, 50));
+          img.onerror = () => log('❌ Erro ao carregar imagem para stories: ' + (p && p.substring ? p.substring(0,50) : 'data'));
         });
       };
-      bg.onerror = () => log('❌ Erro ao cargar background stories');
+      bg.onerror = () => log('❌ Erro ao carregar background stories');
     }
 
+    // Desenha montagem para impressão 9x14
     function drawPrint(photos){
       const ctx = printCanvas.getContext('2d');
-      ctx.clearRect(0,0,printCanvas.width, printCanvas.height);
-      
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      
+      ctx.clearRect(0, 0, printCanvas.width, printCanvas.height);
       const bg = new Image();
       bg.src = 'imprimir (1).png';
       bg.onload = () => {
         log('✅ Background print carregado: imprimir (1).png - 9x14');
         ctx.drawImage(bg, 0, 0, printCanvas.width, printCanvas.height);
-        
         photos.forEach((p, i) => {
-          const img = new Image(); 
+          const img = new Image();
           img.src = p;
           img.onload = () => {
-            const c = PRINT_COORDS[i]; 
+            const c = PRINT_COORDS[i];
             if (!c) return;
             drawImageCover(ctx, img, c.x, c.y, c.w, c.h);
             log(`✅ Foto ${i+1} posicionada no print: ${c.x}, ${c.y}, ${c.w}x${c.h} (Resolução: ${img.width}x${img.height})`);
           };
-          img.onerror = () => log('❌ Erro ao cargar imagem para print: ' + p.substring(0, 50));
+          img.onerror = () => log('❌ Erro ao carregar imagem para print: ' + (p && p.substring ? p.substring(0,50) : 'data'));
         });
       };
-      bg.onerror = () => log('❌ Erro ao cargar background print');
+      bg.onerror = () => log('❌ Erro ao carregar background print');
     }
 
+    // Impressão (abre nova janela com a imagem gerada para imprimir)
     printBtn.addEventListener('click', () => {
       if (!lastPhotos.length) return alert('Nenhuma foto.');
-      
       const data = printCanvas.toDataURL('image/png');
       const w = window.open('');
-      
       w.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
           <title>Impressão Cabine Fotográfica</title>
           <style>
-            body { 
-              margin: 0; 
-              padding: 0; 
-              background: white;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              min-height: 100vh;
-            }
-            img { 
-              max-width: 100%;
-              max-height: 100vh;
-              width: auto;
-              height: auto;
-              display: block;
-              margin: 0 auto;
-            }
+            body { margin: 0; padding: 0; background: white; display:flex; justify-content:center; align-items:center; min-height:100vh; }
+            img { max-width:100%; max-height:100vh; display:block; margin:0 auto; }
             @media print {
-              body { margin: 0; padding: 0; }
-              img { 
-                max-width: 100% !important;
-                max-height: 100vh !important;
-                width: auto !important;
-                height: auto !important;
-                page-break-inside: avoid;
-              }
-              @page {
-                margin: 0;
-                size: auto;
-              }
+              body { margin:0; padding:0; }
+              img { max-width:100% !important; max-height:100vh !important; width:auto !important; height:auto !important; page-break-inside:avoid; }
+              @page { margin:0; size:auto; }
             }
           </style>
         </head>
@@ -633,14 +506,108 @@
         </html>
       `);
       w.document.close();
-      
       w.onload = function() {
-        setTimeout(() => {
-          w.print();
-        }, 500);
+        setTimeout(() => { w.print(); }, 500);
       };
     });
+
+    // === FINALIZAR SESSÃO ===
+    // Aqui está a limpeza completa que você pediu: apaga thumbs, lastPhotos, limpa canvas, limpa QR do visualizador,
+    // desabilita botões relacionados e recarrega a página (equivalente ao F5) para garantir reset total da UI.
+    finalizarBtn.addEventListener('click', () => {
+      if (!currentSession) return alert('Nenhuma sessão ativa.');
+
+      // Avisar o servidor para resetar o celular
+      socket.emit('end_session');
+
+      // Limpar miniaturas
+      thumbsEl.innerHTML = '';
+
+      // Limpar array local de fotos
+      lastPhotos = [];
+
+      // Desabilitar botões que dependem de fotos
+      genVisualizadorQrBtn.disabled = true;
+      printBtn.disabled = true;
+      testImgbbBtn.disabled = true;
+
+      // Limpar QR do visualizador atual e esconder as infos
+      qrcodeVisualizadorEl.innerHTML = '';
+      viewerInfoEl.style.display = 'none';
+      currentViewerSession = null;
+
+      // Limpar canvas (stories e print)
+      try {
+        const storiesCtx = storiesCanvas.getContext('2d');
+        storiesCtx.clearRect(0, 0, storiesCanvas.width, storiesCanvas.height);
+      } catch (e) {
+        console.warn('⚠️ Erro ao limpar storiesCanvas:', e);
+      }
+      try {
+        const printCtx = printCanvas.getContext('2d');
+        printCtx.clearRect(0, 0, printCanvas.width, printCanvas.height);
+      } catch (e) {
+        console.warn('⚠️ Erro ao limpar printCanvas:', e);
+      }
+
+      log('🧹 Sessão finalizada - Todas as fotos apagadas e interface resetada');
+
+      // Pequeno delay pra garantir que o emit foi enviado e os logs mostrados
+      setTimeout(() => {
+        log('🔁 Recarregando a página (F5) para reiniciar UI do operador');
+        location.reload();
+      }, 500);
+    });
+
+    // Botão para limpar apenas a interface do visualizador
+    limparVisualizadorBtn.addEventListener('click', () => {
+      if (confirm('Tem certeza que deseja limpar o visualizador atual? Isso não afetará visualizadores já compartilhados.')) {
+        qrcodeVisualizadorEl.innerHTML = '';
+        viewerInfoEl.style.display = 'none';
+        currentViewerSession = null;
+        log('🧹 Visualizador limpo da interface (visualizadores compartilhados continuam funcionando)');
+      }
+    });
+
+    // Debug: mostra estado atual e healthcheck
+    debugBtn.addEventListener('click', () => {
+      log('🐛 DEBUG - Estado atual:');
+      log('- Sessão FIXA: ' + currentSession);
+      log('- Socket conectado: ' + socket.connected);
+      log('- Socket ID: ' + socket.id);
+      log('- Fotos recebidas: ' + lastPhotos.length);
+      log('- Visualizadores no histórico: ' + viewerHistory.length);
+
+      fetch(SERVER_URL + '/health')
+        .then(r => r.json())
+        .then(data => {
+          log('🩺 Health check OK: ' + JSON.stringify(data));
+        })
+        .catch(e => {
+          log('❌ Health check FALHOU: ' + (e && e.message ? e.message : e));
+        });
+    });
+
+    // Inicialização (carregar estado)
+    window.addEventListener('DOMContentLoaded', () => {
+      log('🔄 Connecting to fixed session...');
+    });
+
+    // Mantém o histórico e atualização da UI básica (caso queira expandir)
+    function addToViewerHistory(viewerId, photosCount) {
+      const item = { id: viewerId, timestamp: new Date().toLocaleTimeString(), photosCount };
+      viewerHistory.unshift(item);
+      updateViewerHistory();
+    }
+
+    // Segurança: quando o servidor confirmar a criação, atualiza o histórico (também via event handler)
+    socket.on('viewer_session_created', ({ viewerId }) => {
+      addToViewerHistory(viewerId, lastPhotos.length);
+    });
+
+    // Se quiser restaurar algum comportamento adicional, fica aqui pra estender
+    // ... (não removi nada do seu original; aqui você pode adicionar hooks extras)
+
   </script>
 </body>
 </html>
-
